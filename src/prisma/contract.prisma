@@ -1,0 +1,332 @@
+// use prisma-next
+
+// ---- Enums -----------------------------------------------------------------
+
+enum ThemePreference {
+  @@type("pg/text@1")
+  light = "light"
+  dark  = "dark"
+}
+
+enum ReminderChannel {
+  @@type("pg/text@1")
+  browser = "browser"
+  email   = "email"
+}
+
+enum TagSource {
+  @@type("pg/text@1")
+  manual       = "manual"
+  ai_suggested = "ai_suggested"
+}
+
+enum AiProvider {
+  @@type("pg/text@1")
+  openai    = "openai"
+  anthropic = "anthropic"
+}
+
+enum AiFeature {
+  @@type("pg/text@1")
+  sentiment_tagging    = "sentiment_tagging"
+  tag_suggestion       = "tag_suggestion"
+  summary              = "summary"
+  chat_with_journal    = "chat_with_journal"
+  minds_comments       = "minds_comments"
+  trend_analysis       = "trend_analysis"
+  topic_detection      = "topic_detection"
+  personality_insights = "personality_insights"
+  growth_suggestions   = "growth_suggestions"
+  weekly_digest        = "weekly_digest"
+}
+
+enum EmotionLabel {
+  @@type("pg/text@1")
+  joy      = "joy"
+  sadness  = "sadness"
+  anger    = "anger"
+  fear     = "fear"
+  surprise = "surprise"
+  disgust  = "disgust"
+  neutral  = "neutral"
+}
+
+enum ChatRole {
+  @@type("pg/text@1")
+  user      = "user"
+  assistant = "assistant"
+}
+
+enum TrendPeriod {
+  @@type("pg/text@1")
+  week   = "week"
+  month  = "month"
+  season = "season"
+}
+
+// ---- Models ----------------------------------------------------------------
+
+model User {
+  id              String             @id @default(uuid())
+  email           String             @unique
+  passwordHash    String?
+  displayName     String?
+  theme           ThemePreference    @default(light)
+  reminderEnabled Boolean            @default(false)
+  reminderTime    String?
+  reminderChannel ReminderChannel    @default(browser)
+  currentStreak   Int                @default(0)
+  longestStreak   Int                @default(0)
+  lastEntryDate   DateString?
+  deletedAt       TimestamptzString?
+  createdAt       TimestamptzString  @default(now())
+  updatedAt       temporal.updatedAtString()
+
+  entries             Entry[]
+  tags                Tag[]
+  chatSessions        ChatSession[]
+  emotionTrends       EmotionTrend[]
+  recurringTopics     RecurringTopic[]
+  personalityInsights PersonalityInsight[]
+  growthSuggestions   GrowthSuggestion[]
+  weeklyDigests       WeeklyDigest[]
+  aiProcessingLogs    AiProcessingLogEntry[]
+  aiUsageCounters     AiUsageCounter[]
+}
+
+model Entry {
+  id        String             @id @default(uuid())
+  userId    String
+  user      User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  content   String
+  deletedAt TimestamptzString?
+  createdAt TimestamptzString  @default(now())
+  updatedAt temporal.updatedAtString()
+
+  tags            EntryTag[]
+  summaryBullets  EntrySummaryBullet[]
+  analysis        EntryAnalysis?
+  chatSources     ChatMessageSourceEntry[]
+  recurringTopics RecurringTopicEntry[]
+  mindsComments   MindsComment[]
+
+  @@index([userId])
+  @@index([userId, createdAt])
+}
+
+model Tag {
+  id        String            @id @default(uuid())
+  userId    String
+  user      User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name      String
+  deletedAt TimestamptzString?
+  createdAt TimestamptzString @default(now())
+
+  entries EntryTag[]
+
+  @@unique([userId, name])
+  @@index([userId])
+}
+
+model EntryTag {
+  entryId   String
+  tagId     String
+  entry     Entry             @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  tag       Tag               @relation(fields: [tagId], references: [id], onDelete: Cascade)
+  source    TagSource         @default(manual)
+  createdAt TimestamptzString @default(now())
+
+  @@id([entryId, tagId])
+  @@index([tagId])
+}
+
+model EntryAnalysis {
+  id             String            @id @default(uuid())
+  entryId        String            @unique
+  entry          Entry             @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  sentimentScore Float
+  primaryEmotion EmotionLabel
+  model          String
+  createdAt      TimestamptzString @default(now())
+  updatedAt      temporal.updatedAtString()
+
+  emotionScores EntryEmotionScore[]
+}
+
+model EntryEmotionScore {
+  id         String        @id @default(uuid())
+  analysisId String
+  analysis   EntryAnalysis @relation(fields: [analysisId], references: [id], onDelete: Cascade)
+  emotion    EmotionLabel
+  score      Float
+
+  @@unique([analysisId, emotion])
+}
+
+model EntrySummaryBullet {
+  id       String @id @default(uuid())
+  entryId  String
+  entry    Entry  @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  position Int
+  text     String
+
+  @@unique([entryId, position])
+}
+
+model AiProcessingLogEntry {
+  id              String            @id @default(uuid())
+  userId          String
+  user            User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  entryId         String?
+  feature         AiFeature
+  provider        AiProvider
+  model           String
+  payloadSummary  String
+  responseSummary String?
+  success         Boolean           @default(true)
+  requestedAt     TimestamptzString @default(now())
+
+  @@index([userId, requestedAt])
+}
+
+model AiUsageCounter {
+  id        String     @id @default(uuid())
+  userId    String
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  date      DateString
+  callCount Int        @default(0)
+
+  @@unique([userId, date])
+}
+
+model ChatSession {
+  id        String            @id @default(uuid())
+  userId    String
+  user      User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title     String?
+  createdAt TimestamptzString @default(now())
+  updatedAt temporal.updatedAtString()
+
+  messages ChatMessage[]
+
+  @@index([userId])
+}
+
+model ChatMessage {
+  id        String            @id @default(uuid())
+  sessionId String
+  session   ChatSession       @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  role      ChatRole
+  content   String
+  createdAt TimestamptzString @default(now())
+
+  sources ChatMessageSourceEntry[]
+
+  @@index([sessionId, createdAt])
+}
+
+
+model ChatMessageSourceEntry {
+  messageId String
+  entryId   String
+  message   ChatMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  entry     Entry       @relation(fields: [entryId], references: [id], onDelete: Cascade)
+
+  @@id([messageId, entryId])
+  @@index([entryId])
+}
+
+model MindsComment {
+  id          String            @id @default(uuid())
+  entryId     String
+  entry       Entry             @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  perspective String
+  content     String
+  provider    AiProvider
+  model       String
+  createdAt   TimestamptzString @default(now())
+
+  @@index([entryId])
+}
+
+model EmotionTrend {
+  id              String            @id @default(uuid())
+  userId          String
+  user            User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  periodType      TrendPeriod
+  periodStart     DateString
+  periodEnd       DateString
+  dominantEmotion EmotionLabel?
+  summary         String
+  createdAt       TimestamptzString @default(now())
+
+  @@unique([userId, periodType, periodStart])
+}
+
+model RecurringTopic {
+  id              String            @id @default(uuid())
+  userId          String
+  user            User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  label           String
+  description     String?
+  occurrenceCount Int               @default(1)
+  firstSeenAt     TimestamptzString
+  lastSeenAt      TimestamptzString
+  createdAt       TimestamptzString @default(now())
+  updatedAt       temporal.updatedAtString()
+
+  entries RecurringTopicEntry[]
+
+  @@unique([userId, label])
+}
+
+model RecurringTopicEntry {
+  topicId String
+  entryId String
+  topic   RecurringTopic @relation(fields: [topicId], references: [id], onDelete: Cascade)
+  entry   Entry          @relation(fields: [entryId], references: [id], onDelete: Cascade)
+
+  @@id([topicId, entryId])
+  @@index([entryId])
+}
+
+model PersonalityInsight {
+  id                String            @id @default(uuid())
+  userId            String
+  user              User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  openness          Float
+  conscientiousness Float
+  extraversion      Float
+  agreeableness     Float
+  neuroticism       Float
+  summary           String?
+  model             String
+  createdAt         TimestamptzString @default(now())
+
+  @@index([userId, createdAt])
+}
+
+model GrowthSuggestion {
+  id           String            @id @default(uuid())
+  userId       String
+  user         User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  content      String
+  category     String?
+  acknowledged Boolean           @default(false)
+  createdAt    TimestamptzString @default(now())
+
+  @@index([userId, createdAt])
+}
+
+model WeeklyDigest {
+  id        String             @id @default(uuid())
+  userId    String
+  user      User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  weekStart DateString
+  weekEnd   DateString
+  content   String
+  sentAt    TimestamptzString?
+  createdAt TimestamptzString  @default(now())
+
+  @@unique([userId, weekStart])
+}
