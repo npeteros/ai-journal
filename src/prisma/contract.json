@@ -2008,13 +2008,6 @@
                   "kind": "scalar"
                 }
               },
-              "passwordHash": {
-                "nullable": true,
-                "type": {
-                  "codecId": "pg/text@1",
-                  "kind": "scalar"
-                }
-              },
               "reminderChannel": {
                 "nullable": false,
                 "type": {
@@ -2240,9 +2233,6 @@
                 },
                 "longestStreak": {
                   "column": "longestStreak"
-                },
-                "passwordHash": {
-                  "column": "passwordHash"
                 },
                 "reminderChannel": {
                   "column": "reminderChannel"
@@ -3933,11 +3923,6 @@
                   "nativeType": "int4",
                   "nullable": false
                 },
-                "passwordHash": {
-                  "codecId": "pg/text@1",
-                  "nativeType": "text",
-                  "nullable": true
-                },
                 "reminderChannel": {
                   "codecId": "pg/text@1",
                   "default": {
@@ -4166,10 +4151,10 @@
         "kind": "postgres-schema"
       }
     },
-    "storageHash": "c2548a472182a735cf91b148c174b75e99df3ce40a12e4661becb23264643077"
+    "storageHash": "d41654b26e6b60d605ae65316558a19693014e27cdb771b09d228ea2484d89ad"
   },
   "execution": {
-    "executionHash": "0965b9c8c099d28296e7819e9a7b6208be9a7fdabe6b5dbae369385399366f4b",
+    "executionHash": "c1291702c0b804ef37cf1993ce6dcb73cf929b2a9b865d781566c5501fed2ab1",
     "mutations": {
       "defaults": [
         {
@@ -4384,17 +4369,6 @@
             "column": "id",
             "namespace": "public",
             "table": "tag"
-          }
-        },
-        {
-          "onCreate": {
-            "id": "uuidv4",
-            "kind": "generator"
-          },
-          "ref": {
-            "column": "id",
-            "namespace": "public",
-            "table": "user"
           }
         },
         {

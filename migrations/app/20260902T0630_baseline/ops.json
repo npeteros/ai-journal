@@ -1,0 +1,2995 @@
+[
+  {
+    "id": "schema.public",
+    "label": "Create schema \"public\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres"
+    },
+    "precheck": [],
+    "execute": [
+      {
+        "description": "Create schema \"public\"",
+        "sql": "CREATE SCHEMA IF NOT EXISTS \"public\"",
+        "params": []
+      }
+    ],
+    "postcheck": []
+  },
+  {
+    "id": "table.aiProcessingLogEntry",
+    "label": "Create table \"aiProcessingLogEntry\"",
+    "summary": "Creates table \"aiProcessingLogEntry\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "table",
+        "name": "aiProcessingLogEntry"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure table \"aiProcessingLogEntry\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"aiProcessingLogEntry\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create table \"aiProcessingLogEntry\"",
+        "sql": "CREATE TABLE \"public\".\"aiProcessingLogEntry\" (\n  \"entryId\" text,\n  \"feature\" text NOT NULL,\n  \"id\" text NOT NULL,\n  \"model\" text NOT NULL,\n  \"payloadSummary\" text NOT NULL,\n  \"provider\" text NOT NULL,\n  \"requestedAt\" timestamptz DEFAULT (now()) NOT NULL,\n  \"responseSummary\" text,\n  \"success\" bool DEFAULT true NOT NULL,\n  \"userId\" text NOT NULL,\n  PRIMARY KEY (\"id\"),\n  CONSTRAINT \"aiProcessingLogEntry_feature_check_b65c4da6\" CHECK (\"feature\" IN ('sentiment_tagging', 'tag_suggestion', 'summary', 'chat_with_journal', 'minds_comments', 'trend_analysis', 'topic_detection', 'personality_insights', 'growth_suggestions', 'weekly_digest')),\n  CONSTRAINT \"aiProcessingLogEntry_provider_check_b91ed006\" CHECK (\"provider\" IN ('openai', 'anthropic'))\n)",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify table \"aiProcessingLogEntry\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"aiProcessingLogEntry\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "table.aiUsageCounter",
+    "label": "Create table \"aiUsageCounter\"",
+    "summary": "Creates table \"aiUsageCounter\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "table",
+        "name": "aiUsageCounter"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure table \"aiUsageCounter\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"aiUsageCounter\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create table \"aiUsageCounter\"",
+        "sql": "CREATE TABLE \"public\".\"aiUsageCounter\" (\n  \"callCount\" int4 DEFAULT 0 NOT NULL,\n  \"date\" date NOT NULL,\n  \"id\" text NOT NULL,\n  \"userId\" text NOT NULL,\n  PRIMARY KEY (\"id\")\n)",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify table \"aiUsageCounter\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"aiUsageCounter\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "table.chatMessage",
+    "label": "Create table \"chatMessage\"",
+    "summary": "Creates table \"chatMessage\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "table",
+        "name": "chatMessage"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure table \"chatMessage\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"chatMessage\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create table \"chatMessage\"",
+        "sql": "CREATE TABLE \"public\".\"chatMessage\" (\n  \"content\" text NOT NULL,\n  \"createdAt\" timestamptz DEFAULT (now()) NOT NULL,\n  \"id\" text NOT NULL,\n  \"role\" text NOT NULL,\n  \"sessionId\" text NOT NULL,\n  PRIMARY KEY (\"id\"),\n  CONSTRAINT \"chatMessage_role_check_207dfd80\" CHECK (\"role\" IN ('user', 'assistant'))\n)",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify table \"chatMessage\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"chatMessage\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "table.chatMessageSourceEntry",
+    "label": "Create table \"chatMessageSourceEntry\"",
+    "summary": "Creates table \"chatMessageSourceEntry\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "table",
+        "name": "chatMessageSourceEntry"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure table \"chatMessageSourceEntry\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"chatMessageSourceEntry\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create table \"chatMessageSourceEntry\"",
+        "sql": "CREATE TABLE \"public\".\"chatMessageSourceEntry\" (\n  \"entryId\" text NOT NULL,\n  \"messageId\" text NOT NULL,\n  PRIMARY KEY (\"messageId\", \"entryId\")\n)",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify table \"chatMessageSourceEntry\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"chatMessageSourceEntry\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "table.chatSession",
+    "label": "Create table \"chatSession\"",
+    "summary": "Creates table \"chatSession\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "table",
+        "name": "chatSession"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure table \"chatSession\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"chatSession\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create table \"chatSession\"",
+        "sql": "CREATE TABLE \"public\".\"chatSession\" (\n  \"createdAt\" timestamptz DEFAULT (now()) NOT NULL,\n  \"id\" text NOT NULL,\n  \"title\" text,\n  \"updatedAt\" timestamptz NOT NULL,\n  \"userId\" text NOT NULL,\n  PRIMARY KEY (\"id\")\n)",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify table \"chatSession\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"chatSession\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "table.emotionTrend",
+    "label": "Create table \"emotionTrend\"",
+    "summary": "Creates table \"emotionTrend\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "table",
+        "name": "emotionTrend"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure table \"emotionTrend\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"emotionTrend\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create table \"emotionTrend\"",
+        "sql": "CREATE TABLE \"public\".\"emotionTrend\" (\n  \"createdAt\" timestamptz DEFAULT (now()) NOT NULL,\n  \"dominantEmotion\" text,\n  \"id\" text NOT NULL,\n  \"periodEnd\" date NOT NULL,\n  \"periodStart\" date NOT NULL,\n  \"periodType\" text NOT NULL,\n  \"summary\" text NOT NULL,\n  \"userId\" text NOT NULL,\n  PRIMARY KEY (\"id\"),\n  CONSTRAINT \"emotionTrend_dominantEmotion_check_e41eda26\" CHECK (\"dominantEmotion\" IN ('joy', 'sadness', 'anger', 'fear', 'surprise', 'disgust', 'neutral')),\n  CONSTRAINT \"emotionTrend_periodType_check_909e8ad8\" CHECK (\"periodType\" IN ('week', 'month', 'season'))\n)",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify table \"emotionTrend\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"emotionTrend\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "table.entry",
+    "label": "Create table \"entry\"",
+    "summary": "Creates table \"entry\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "table",
+        "name": "entry"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure table \"entry\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"entry\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create table \"entry\"",
+        "sql": "CREATE TABLE \"public\".\"entry\" (\n  \"content\" text NOT NULL,\n  \"createdAt\" timestamptz DEFAULT (now()) NOT NULL,\n  \"deletedAt\" timestamptz,\n  \"id\" text NOT NULL,\n  \"updatedAt\" timestamptz NOT NULL,\n  \"userId\" text NOT NULL,\n  PRIMARY KEY (\"id\")\n)",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify table \"entry\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"entry\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "table.entryAnalysis",
+    "label": "Create table \"entryAnalysis\"",
+    "summary": "Creates table \"entryAnalysis\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "table",
+        "name": "entryAnalysis"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure table \"entryAnalysis\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"entryAnalysis\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create table \"entryAnalysis\"",
+        "sql": "CREATE TABLE \"public\".\"entryAnalysis\" (\n  \"createdAt\" timestamptz DEFAULT (now()) NOT NULL,\n  \"entryId\" text NOT NULL,\n  \"id\" text NOT NULL,\n  \"model\" text NOT NULL,\n  \"primaryEmotion\" text NOT NULL,\n  \"sentimentScore\" float8 NOT NULL,\n  \"updatedAt\" timestamptz NOT NULL,\n  PRIMARY KEY (\"id\"),\n  CONSTRAINT \"entryAnalysis_primaryEmotion_check_256378c4\" CHECK (\"primaryEmotion\" IN ('joy', 'sadness', 'anger', 'fear', 'surprise', 'disgust', 'neutral'))\n)",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify table \"entryAnalysis\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"entryAnalysis\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "table.entryEmotionScore",
+    "label": "Create table \"entryEmotionScore\"",
+    "summary": "Creates table \"entryEmotionScore\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "table",
+        "name": "entryEmotionScore"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure table \"entryEmotionScore\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"entryEmotionScore\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create table \"entryEmotionScore\"",
+        "sql": "CREATE TABLE \"public\".\"entryEmotionScore\" (\n  \"analysisId\" text NOT NULL,\n  \"emotion\" text NOT NULL,\n  \"id\" text NOT NULL,\n  \"score\" float8 NOT NULL,\n  PRIMARY KEY (\"id\"),\n  CONSTRAINT \"entryEmotionScore_emotion_check_a972a53d\" CHECK (\"emotion\" IN ('joy', 'sadness', 'anger', 'fear', 'surprise', 'disgust', 'neutral'))\n)",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify table \"entryEmotionScore\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"entryEmotionScore\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "table.entrySummaryBullet",
+    "label": "Create table \"entrySummaryBullet\"",
+    "summary": "Creates table \"entrySummaryBullet\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "table",
+        "name": "entrySummaryBullet"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure table \"entrySummaryBullet\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"entrySummaryBullet\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create table \"entrySummaryBullet\"",
+        "sql": "CREATE TABLE \"public\".\"entrySummaryBullet\" (\n  \"entryId\" text NOT NULL,\n  \"id\" text NOT NULL,\n  \"position\" int4 NOT NULL,\n  \"text\" text NOT NULL,\n  PRIMARY KEY (\"id\")\n)",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify table \"entrySummaryBullet\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"entrySummaryBullet\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "table.entryTag",
+    "label": "Create table \"entryTag\"",
+    "summary": "Creates table \"entryTag\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "table",
+        "name": "entryTag"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure table \"entryTag\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"entryTag\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create table \"entryTag\"",
+        "sql": "CREATE TABLE \"public\".\"entryTag\" (\n  \"createdAt\" timestamptz DEFAULT (now()) NOT NULL,\n  \"entryId\" text NOT NULL,\n  \"source\" text DEFAULT 'manual' NOT NULL,\n  \"tagId\" text NOT NULL,\n  PRIMARY KEY (\"entryId\", \"tagId\"),\n  CONSTRAINT \"entryTag_source_check_2163fedd\" CHECK (\"source\" IN ('manual', 'ai_suggested'))\n)",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify table \"entryTag\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"entryTag\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "table.growthSuggestion",
+    "label": "Create table \"growthSuggestion\"",
+    "summary": "Creates table \"growthSuggestion\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "table",
+        "name": "growthSuggestion"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure table \"growthSuggestion\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"growthSuggestion\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create table \"growthSuggestion\"",
+        "sql": "CREATE TABLE \"public\".\"growthSuggestion\" (\n  \"acknowledged\" bool DEFAULT false NOT NULL,\n  \"category\" text,\n  \"content\" text NOT NULL,\n  \"createdAt\" timestamptz DEFAULT (now()) NOT NULL,\n  \"id\" text NOT NULL,\n  \"userId\" text NOT NULL,\n  PRIMARY KEY (\"id\")\n)",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify table \"growthSuggestion\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"growthSuggestion\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "table.mindsComment",
+    "label": "Create table \"mindsComment\"",
+    "summary": "Creates table \"mindsComment\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "table",
+        "name": "mindsComment"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure table \"mindsComment\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"mindsComment\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create table \"mindsComment\"",
+        "sql": "CREATE TABLE \"public\".\"mindsComment\" (\n  \"content\" text NOT NULL,\n  \"createdAt\" timestamptz DEFAULT (now()) NOT NULL,\n  \"entryId\" text NOT NULL,\n  \"id\" text NOT NULL,\n  \"model\" text NOT NULL,\n  \"perspective\" text NOT NULL,\n  \"provider\" text NOT NULL,\n  PRIMARY KEY (\"id\"),\n  CONSTRAINT \"mindsComment_provider_check_b91ed006\" CHECK (\"provider\" IN ('openai', 'anthropic'))\n)",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify table \"mindsComment\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"mindsComment\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "table.personalityInsight",
+    "label": "Create table \"personalityInsight\"",
+    "summary": "Creates table \"personalityInsight\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "table",
+        "name": "personalityInsight"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure table \"personalityInsight\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"personalityInsight\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create table \"personalityInsight\"",
+        "sql": "CREATE TABLE \"public\".\"personalityInsight\" (\n  \"agreeableness\" float8 NOT NULL,\n  \"conscientiousness\" float8 NOT NULL,\n  \"createdAt\" timestamptz DEFAULT (now()) NOT NULL,\n  \"extraversion\" float8 NOT NULL,\n  \"id\" text NOT NULL,\n  \"model\" text NOT NULL,\n  \"neuroticism\" float8 NOT NULL,\n  \"openness\" float8 NOT NULL,\n  \"summary\" text,\n  \"userId\" text NOT NULL,\n  PRIMARY KEY (\"id\")\n)",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify table \"personalityInsight\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"personalityInsight\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "table.recurringTopic",
+    "label": "Create table \"recurringTopic\"",
+    "summary": "Creates table \"recurringTopic\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "table",
+        "name": "recurringTopic"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure table \"recurringTopic\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"recurringTopic\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create table \"recurringTopic\"",
+        "sql": "CREATE TABLE \"public\".\"recurringTopic\" (\n  \"createdAt\" timestamptz DEFAULT (now()) NOT NULL,\n  \"description\" text,\n  \"firstSeenAt\" timestamptz NOT NULL,\n  \"id\" text NOT NULL,\n  \"label\" text NOT NULL,\n  \"lastSeenAt\" timestamptz NOT NULL,\n  \"occurrenceCount\" int4 DEFAULT 1 NOT NULL,\n  \"updatedAt\" timestamptz NOT NULL,\n  \"userId\" text NOT NULL,\n  PRIMARY KEY (\"id\")\n)",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify table \"recurringTopic\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"recurringTopic\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "table.recurringTopicEntry",
+    "label": "Create table \"recurringTopicEntry\"",
+    "summary": "Creates table \"recurringTopicEntry\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "table",
+        "name": "recurringTopicEntry"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure table \"recurringTopicEntry\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"recurringTopicEntry\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create table \"recurringTopicEntry\"",
+        "sql": "CREATE TABLE \"public\".\"recurringTopicEntry\" (\n  \"entryId\" text NOT NULL,\n  \"topicId\" text NOT NULL,\n  PRIMARY KEY (\"topicId\", \"entryId\")\n)",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify table \"recurringTopicEntry\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"recurringTopicEntry\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "table.tag",
+    "label": "Create table \"tag\"",
+    "summary": "Creates table \"tag\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "table",
+        "name": "tag"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure table \"tag\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"tag\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create table \"tag\"",
+        "sql": "CREATE TABLE \"public\".\"tag\" (\n  \"createdAt\" timestamptz DEFAULT (now()) NOT NULL,\n  \"deletedAt\" timestamptz,\n  \"id\" text NOT NULL,\n  \"name\" text NOT NULL,\n  \"userId\" text NOT NULL,\n  PRIMARY KEY (\"id\")\n)",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify table \"tag\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"tag\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "table.user",
+    "label": "Create table \"user\"",
+    "summary": "Creates table \"user\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "table",
+        "name": "user"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure table \"user\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"user\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create table \"user\"",
+        "sql": "CREATE TABLE \"public\".\"user\" (\n  \"createdAt\" timestamptz DEFAULT (now()) NOT NULL,\n  \"currentStreak\" int4 DEFAULT 0 NOT NULL,\n  \"deletedAt\" timestamptz,\n  \"displayName\" text,\n  \"email\" text NOT NULL,\n  \"id\" text NOT NULL,\n  \"lastEntryDate\" date,\n  \"longestStreak\" int4 DEFAULT 0 NOT NULL,\n  \"passwordHash\" text,\n  \"reminderChannel\" text DEFAULT 'browser' NOT NULL,\n  \"reminderEnabled\" bool DEFAULT false NOT NULL,\n  \"reminderTime\" text,\n  \"theme\" text DEFAULT 'light' NOT NULL,\n  \"updatedAt\" timestamptz NOT NULL,\n  PRIMARY KEY (\"id\"),\n  CONSTRAINT \"user_reminderChannel_check_0762b15d\" CHECK (\"reminderChannel\" IN ('browser', 'email')),\n  CONSTRAINT \"user_theme_check_753234b6\" CHECK (\"theme\" IN ('light', 'dark'))\n)",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify table \"user\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"user\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "table.weeklyDigest",
+    "label": "Create table \"weeklyDigest\"",
+    "summary": "Creates table \"weeklyDigest\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "table",
+        "name": "weeklyDigest"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure table \"weeklyDigest\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"weeklyDigest\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create table \"weeklyDigest\"",
+        "sql": "CREATE TABLE \"public\".\"weeklyDigest\" (\n  \"content\" text NOT NULL,\n  \"createdAt\" timestamptz DEFAULT (now()) NOT NULL,\n  \"id\" text NOT NULL,\n  \"sentAt\" timestamptz,\n  \"userId\" text NOT NULL,\n  \"weekEnd\" date NOT NULL,\n  \"weekStart\" date NOT NULL,\n  PRIMARY KEY (\"id\")\n)",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify table \"weeklyDigest\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"weeklyDigest\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "unique.aiUsageCounter.aiUsageCounter_userId_date_key",
+    "label": "Add unique constraint on \"aiUsageCounter\" (userId, date)",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "unique",
+        "name": "aiUsageCounter_userId_date_key",
+        "table": "aiUsageCounter"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure constraint \"aiUsageCounter_userId_date_key\" does not exist",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "aiUsageCounter_userId_date_key",
+          "public",
+          "\"public\".\"aiUsageCounter\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add unique constraint \"aiUsageCounter_userId_date_key\"",
+        "sql": "ALTER TABLE \"public\".\"aiUsageCounter\" ADD CONSTRAINT \"aiUsageCounter_userId_date_key\" UNIQUE (\"userId\", \"date\")"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify constraint \"aiUsageCounter_userId_date_key\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "aiUsageCounter_userId_date_key",
+          "public",
+          "\"public\".\"aiUsageCounter\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "unique.emotionTrend.emotionTrend_userId_periodType_periodStart_key",
+    "label": "Add unique constraint on \"emotionTrend\" (userId, periodType, periodStart)",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "unique",
+        "name": "emotionTrend_userId_periodType_periodStart_key",
+        "table": "emotionTrend"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure constraint \"emotionTrend_userId_periodType_periodStart_key\" does not exist",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "emotionTrend_userId_periodType_periodStart_key",
+          "public",
+          "\"public\".\"emotionTrend\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add unique constraint \"emotionTrend_userId_periodType_periodStart_key\"",
+        "sql": "ALTER TABLE \"public\".\"emotionTrend\" ADD CONSTRAINT \"emotionTrend_userId_periodType_periodStart_key\" UNIQUE (\"userId\", \"periodType\", \"periodStart\")"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify constraint \"emotionTrend_userId_periodType_periodStart_key\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "emotionTrend_userId_periodType_periodStart_key",
+          "public",
+          "\"public\".\"emotionTrend\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "unique.entryAnalysis.entryAnalysis_entryId_key",
+    "label": "Add unique constraint on \"entryAnalysis\" (entryId)",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "unique",
+        "name": "entryAnalysis_entryId_key",
+        "table": "entryAnalysis"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure constraint \"entryAnalysis_entryId_key\" does not exist",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "entryAnalysis_entryId_key",
+          "public",
+          "\"public\".\"entryAnalysis\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add unique constraint \"entryAnalysis_entryId_key\"",
+        "sql": "ALTER TABLE \"public\".\"entryAnalysis\" ADD CONSTRAINT \"entryAnalysis_entryId_key\" UNIQUE (\"entryId\")"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify constraint \"entryAnalysis_entryId_key\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "entryAnalysis_entryId_key",
+          "public",
+          "\"public\".\"entryAnalysis\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "unique.entryEmotionScore.entryEmotionScore_analysisId_emotion_key",
+    "label": "Add unique constraint on \"entryEmotionScore\" (analysisId, emotion)",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "unique",
+        "name": "entryEmotionScore_analysisId_emotion_key",
+        "table": "entryEmotionScore"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure constraint \"entryEmotionScore_analysisId_emotion_key\" does not exist",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "entryEmotionScore_analysisId_emotion_key",
+          "public",
+          "\"public\".\"entryEmotionScore\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add unique constraint \"entryEmotionScore_analysisId_emotion_key\"",
+        "sql": "ALTER TABLE \"public\".\"entryEmotionScore\" ADD CONSTRAINT \"entryEmotionScore_analysisId_emotion_key\" UNIQUE (\"analysisId\", \"emotion\")"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify constraint \"entryEmotionScore_analysisId_emotion_key\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "entryEmotionScore_analysisId_emotion_key",
+          "public",
+          "\"public\".\"entryEmotionScore\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "unique.entrySummaryBullet.entrySummaryBullet_entryId_position_key",
+    "label": "Add unique constraint on \"entrySummaryBullet\" (entryId, position)",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "unique",
+        "name": "entrySummaryBullet_entryId_position_key",
+        "table": "entrySummaryBullet"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure constraint \"entrySummaryBullet_entryId_position_key\" does not exist",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "entrySummaryBullet_entryId_position_key",
+          "public",
+          "\"public\".\"entrySummaryBullet\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add unique constraint \"entrySummaryBullet_entryId_position_key\"",
+        "sql": "ALTER TABLE \"public\".\"entrySummaryBullet\" ADD CONSTRAINT \"entrySummaryBullet_entryId_position_key\" UNIQUE (\"entryId\", \"position\")"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify constraint \"entrySummaryBullet_entryId_position_key\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "entrySummaryBullet_entryId_position_key",
+          "public",
+          "\"public\".\"entrySummaryBullet\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "unique.recurringTopic.recurringTopic_userId_label_key",
+    "label": "Add unique constraint on \"recurringTopic\" (userId, label)",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "unique",
+        "name": "recurringTopic_userId_label_key",
+        "table": "recurringTopic"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure constraint \"recurringTopic_userId_label_key\" does not exist",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "recurringTopic_userId_label_key",
+          "public",
+          "\"public\".\"recurringTopic\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add unique constraint \"recurringTopic_userId_label_key\"",
+        "sql": "ALTER TABLE \"public\".\"recurringTopic\" ADD CONSTRAINT \"recurringTopic_userId_label_key\" UNIQUE (\"userId\", \"label\")"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify constraint \"recurringTopic_userId_label_key\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "recurringTopic_userId_label_key",
+          "public",
+          "\"public\".\"recurringTopic\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "unique.tag.tag_userId_name_key",
+    "label": "Add unique constraint on \"tag\" (userId, name)",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "unique",
+        "name": "tag_userId_name_key",
+        "table": "tag"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure constraint \"tag_userId_name_key\" does not exist",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "tag_userId_name_key",
+          "public",
+          "\"public\".\"tag\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add unique constraint \"tag_userId_name_key\"",
+        "sql": "ALTER TABLE \"public\".\"tag\" ADD CONSTRAINT \"tag_userId_name_key\" UNIQUE (\"userId\", \"name\")"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify constraint \"tag_userId_name_key\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "tag_userId_name_key",
+          "public",
+          "\"public\".\"tag\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "unique.user.user_email_key",
+    "label": "Add unique constraint on \"user\" (email)",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "unique",
+        "name": "user_email_key",
+        "table": "user"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure constraint \"user_email_key\" does not exist",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "user_email_key",
+          "public",
+          "\"public\".\"user\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add unique constraint \"user_email_key\"",
+        "sql": "ALTER TABLE \"public\".\"user\" ADD CONSTRAINT \"user_email_key\" UNIQUE (\"email\")"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify constraint \"user_email_key\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "user_email_key",
+          "public",
+          "\"public\".\"user\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "unique.weeklyDigest.weeklyDigest_userId_weekStart_key",
+    "label": "Add unique constraint on \"weeklyDigest\" (userId, weekStart)",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "unique",
+        "name": "weeklyDigest_userId_weekStart_key",
+        "table": "weeklyDigest"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure constraint \"weeklyDigest_userId_weekStart_key\" does not exist",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "weeklyDigest_userId_weekStart_key",
+          "public",
+          "\"public\".\"weeklyDigest\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add unique constraint \"weeklyDigest_userId_weekStart_key\"",
+        "sql": "ALTER TABLE \"public\".\"weeklyDigest\" ADD CONSTRAINT \"weeklyDigest_userId_weekStart_key\" UNIQUE (\"userId\", \"weekStart\")"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify constraint \"weeklyDigest_userId_weekStart_key\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "weeklyDigest_userId_weekStart_key",
+          "public",
+          "\"public\".\"weeklyDigest\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "index.aiProcessingLogEntry.aiProcessingLogEntry_userId_idx_a489d58a",
+    "label": "Create index \"aiProcessingLogEntry_userId_idx_a489d58a\" on \"aiProcessingLogEntry\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "index",
+        "name": "aiProcessingLogEntry_userId_idx_a489d58a",
+        "table": "aiProcessingLogEntry"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"aiProcessingLogEntry_userId_idx_a489d58a\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"aiProcessingLogEntry_userId_idx_a489d58a\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create index \"aiProcessingLogEntry_userId_idx_a489d58a\"",
+        "sql": "CREATE INDEX \"aiProcessingLogEntry_userId_idx_a489d58a\" ON \"public\".\"aiProcessingLogEntry\" (\"userId\")",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"aiProcessingLogEntry_userId_idx_a489d58a\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"aiProcessingLogEntry_userId_idx_a489d58a\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "index.aiProcessingLogEntry.aiProcessingLogEntry_userId_requestedAt_idx_e6aba982",
+    "label": "Create index \"aiProcessingLogEntry_userId_requestedAt_idx_e6aba982\" on \"aiProcessingLogEntry\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "index",
+        "name": "aiProcessingLogEntry_userId_requestedAt_idx_e6aba982",
+        "table": "aiProcessingLogEntry"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"aiProcessingLogEntry_userId_requestedAt_idx_e6aba982\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"aiProcessingLogEntry_userId_requestedAt_idx_e6aba982\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create index \"aiProcessingLogEntry_userId_requestedAt_idx_e6aba982\"",
+        "sql": "CREATE INDEX \"aiProcessingLogEntry_userId_requestedAt_idx_e6aba982\" ON \"public\".\"aiProcessingLogEntry\" (\"userId\", \"requestedAt\")",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"aiProcessingLogEntry_userId_requestedAt_idx_e6aba982\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"aiProcessingLogEntry_userId_requestedAt_idx_e6aba982\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "index.aiUsageCounter.aiUsageCounter_userId_idx_a489d58a",
+    "label": "Create index \"aiUsageCounter_userId_idx_a489d58a\" on \"aiUsageCounter\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "index",
+        "name": "aiUsageCounter_userId_idx_a489d58a",
+        "table": "aiUsageCounter"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"aiUsageCounter_userId_idx_a489d58a\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"aiUsageCounter_userId_idx_a489d58a\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create index \"aiUsageCounter_userId_idx_a489d58a\"",
+        "sql": "CREATE INDEX \"aiUsageCounter_userId_idx_a489d58a\" ON \"public\".\"aiUsageCounter\" (\"userId\")",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"aiUsageCounter_userId_idx_a489d58a\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"aiUsageCounter_userId_idx_a489d58a\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "index.chatMessage.chatMessage_sessionId_createdAt_idx_9c04f880",
+    "label": "Create index \"chatMessage_sessionId_createdAt_idx_9c04f880\" on \"chatMessage\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "index",
+        "name": "chatMessage_sessionId_createdAt_idx_9c04f880",
+        "table": "chatMessage"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"chatMessage_sessionId_createdAt_idx_9c04f880\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"chatMessage_sessionId_createdAt_idx_9c04f880\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create index \"chatMessage_sessionId_createdAt_idx_9c04f880\"",
+        "sql": "CREATE INDEX \"chatMessage_sessionId_createdAt_idx_9c04f880\" ON \"public\".\"chatMessage\" (\"sessionId\", \"createdAt\")",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"chatMessage_sessionId_createdAt_idx_9c04f880\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"chatMessage_sessionId_createdAt_idx_9c04f880\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "index.chatMessage.chatMessage_sessionId_idx_29f415d4",
+    "label": "Create index \"chatMessage_sessionId_idx_29f415d4\" on \"chatMessage\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "index",
+        "name": "chatMessage_sessionId_idx_29f415d4",
+        "table": "chatMessage"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"chatMessage_sessionId_idx_29f415d4\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"chatMessage_sessionId_idx_29f415d4\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create index \"chatMessage_sessionId_idx_29f415d4\"",
+        "sql": "CREATE INDEX \"chatMessage_sessionId_idx_29f415d4\" ON \"public\".\"chatMessage\" (\"sessionId\")",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"chatMessage_sessionId_idx_29f415d4\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"chatMessage_sessionId_idx_29f415d4\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "index.chatMessageSourceEntry.chatMessageSourceEntry_entryId_idx_8b42d1db",
+    "label": "Create index \"chatMessageSourceEntry_entryId_idx_8b42d1db\" on \"chatMessageSourceEntry\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "index",
+        "name": "chatMessageSourceEntry_entryId_idx_8b42d1db",
+        "table": "chatMessageSourceEntry"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"chatMessageSourceEntry_entryId_idx_8b42d1db\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"chatMessageSourceEntry_entryId_idx_8b42d1db\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create index \"chatMessageSourceEntry_entryId_idx_8b42d1db\"",
+        "sql": "CREATE INDEX \"chatMessageSourceEntry_entryId_idx_8b42d1db\" ON \"public\".\"chatMessageSourceEntry\" (\"entryId\")",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"chatMessageSourceEntry_entryId_idx_8b42d1db\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"chatMessageSourceEntry_entryId_idx_8b42d1db\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "index.chatMessageSourceEntry.chatMessageSourceEntry_messageId_idx_3cdded8d",
+    "label": "Create index \"chatMessageSourceEntry_messageId_idx_3cdded8d\" on \"chatMessageSourceEntry\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "index",
+        "name": "chatMessageSourceEntry_messageId_idx_3cdded8d",
+        "table": "chatMessageSourceEntry"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"chatMessageSourceEntry_messageId_idx_3cdded8d\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"chatMessageSourceEntry_messageId_idx_3cdded8d\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create index \"chatMessageSourceEntry_messageId_idx_3cdded8d\"",
+        "sql": "CREATE INDEX \"chatMessageSourceEntry_messageId_idx_3cdded8d\" ON \"public\".\"chatMessageSourceEntry\" (\"messageId\")",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"chatMessageSourceEntry_messageId_idx_3cdded8d\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"chatMessageSourceEntry_messageId_idx_3cdded8d\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "index.chatSession.chatSession_userId_idx_a489d58a",
+    "label": "Create index \"chatSession_userId_idx_a489d58a\" on \"chatSession\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "index",
+        "name": "chatSession_userId_idx_a489d58a",
+        "table": "chatSession"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"chatSession_userId_idx_a489d58a\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"chatSession_userId_idx_a489d58a\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create index \"chatSession_userId_idx_a489d58a\"",
+        "sql": "CREATE INDEX \"chatSession_userId_idx_a489d58a\" ON \"public\".\"chatSession\" (\"userId\")",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"chatSession_userId_idx_a489d58a\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"chatSession_userId_idx_a489d58a\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "index.emotionTrend.emotionTrend_userId_idx_a489d58a",
+    "label": "Create index \"emotionTrend_userId_idx_a489d58a\" on \"emotionTrend\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "index",
+        "name": "emotionTrend_userId_idx_a489d58a",
+        "table": "emotionTrend"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"emotionTrend_userId_idx_a489d58a\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"emotionTrend_userId_idx_a489d58a\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create index \"emotionTrend_userId_idx_a489d58a\"",
+        "sql": "CREATE INDEX \"emotionTrend_userId_idx_a489d58a\" ON \"public\".\"emotionTrend\" (\"userId\")",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"emotionTrend_userId_idx_a489d58a\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"emotionTrend_userId_idx_a489d58a\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "index.entry.entry_userId_createdAt_idx_f726f04a",
+    "label": "Create index \"entry_userId_createdAt_idx_f726f04a\" on \"entry\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "index",
+        "name": "entry_userId_createdAt_idx_f726f04a",
+        "table": "entry"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"entry_userId_createdAt_idx_f726f04a\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"entry_userId_createdAt_idx_f726f04a\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create index \"entry_userId_createdAt_idx_f726f04a\"",
+        "sql": "CREATE INDEX \"entry_userId_createdAt_idx_f726f04a\" ON \"public\".\"entry\" (\"userId\", \"createdAt\")",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"entry_userId_createdAt_idx_f726f04a\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"entry_userId_createdAt_idx_f726f04a\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "index.entry.entry_userId_idx_a489d58a",
+    "label": "Create index \"entry_userId_idx_a489d58a\" on \"entry\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "index",
+        "name": "entry_userId_idx_a489d58a",
+        "table": "entry"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"entry_userId_idx_a489d58a\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"entry_userId_idx_a489d58a\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create index \"entry_userId_idx_a489d58a\"",
+        "sql": "CREATE INDEX \"entry_userId_idx_a489d58a\" ON \"public\".\"entry\" (\"userId\")",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"entry_userId_idx_a489d58a\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"entry_userId_idx_a489d58a\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "index.entryEmotionScore.entryEmotionScore_analysisId_idx_11b47406",
+    "label": "Create index \"entryEmotionScore_analysisId_idx_11b47406\" on \"entryEmotionScore\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "index",
+        "name": "entryEmotionScore_analysisId_idx_11b47406",
+        "table": "entryEmotionScore"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"entryEmotionScore_analysisId_idx_11b47406\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"entryEmotionScore_analysisId_idx_11b47406\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create index \"entryEmotionScore_analysisId_idx_11b47406\"",
+        "sql": "CREATE INDEX \"entryEmotionScore_analysisId_idx_11b47406\" ON \"public\".\"entryEmotionScore\" (\"analysisId\")",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"entryEmotionScore_analysisId_idx_11b47406\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"entryEmotionScore_analysisId_idx_11b47406\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "index.entrySummaryBullet.entrySummaryBullet_entryId_idx_8b42d1db",
+    "label": "Create index \"entrySummaryBullet_entryId_idx_8b42d1db\" on \"entrySummaryBullet\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "index",
+        "name": "entrySummaryBullet_entryId_idx_8b42d1db",
+        "table": "entrySummaryBullet"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"entrySummaryBullet_entryId_idx_8b42d1db\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"entrySummaryBullet_entryId_idx_8b42d1db\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create index \"entrySummaryBullet_entryId_idx_8b42d1db\"",
+        "sql": "CREATE INDEX \"entrySummaryBullet_entryId_idx_8b42d1db\" ON \"public\".\"entrySummaryBullet\" (\"entryId\")",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"entrySummaryBullet_entryId_idx_8b42d1db\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"entrySummaryBullet_entryId_idx_8b42d1db\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "index.entryTag.entryTag_entryId_idx_8b42d1db",
+    "label": "Create index \"entryTag_entryId_idx_8b42d1db\" on \"entryTag\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "index",
+        "name": "entryTag_entryId_idx_8b42d1db",
+        "table": "entryTag"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"entryTag_entryId_idx_8b42d1db\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"entryTag_entryId_idx_8b42d1db\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create index \"entryTag_entryId_idx_8b42d1db\"",
+        "sql": "CREATE INDEX \"entryTag_entryId_idx_8b42d1db\" ON \"public\".\"entryTag\" (\"entryId\")",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"entryTag_entryId_idx_8b42d1db\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"entryTag_entryId_idx_8b42d1db\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "index.entryTag.entryTag_tagId_idx_86854244",
+    "label": "Create index \"entryTag_tagId_idx_86854244\" on \"entryTag\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "index",
+        "name": "entryTag_tagId_idx_86854244",
+        "table": "entryTag"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"entryTag_tagId_idx_86854244\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"entryTag_tagId_idx_86854244\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create index \"entryTag_tagId_idx_86854244\"",
+        "sql": "CREATE INDEX \"entryTag_tagId_idx_86854244\" ON \"public\".\"entryTag\" (\"tagId\")",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"entryTag_tagId_idx_86854244\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"entryTag_tagId_idx_86854244\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "index.growthSuggestion.growthSuggestion_userId_createdAt_idx_f726f04a",
+    "label": "Create index \"growthSuggestion_userId_createdAt_idx_f726f04a\" on \"growthSuggestion\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "index",
+        "name": "growthSuggestion_userId_createdAt_idx_f726f04a",
+        "table": "growthSuggestion"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"growthSuggestion_userId_createdAt_idx_f726f04a\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"growthSuggestion_userId_createdAt_idx_f726f04a\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create index \"growthSuggestion_userId_createdAt_idx_f726f04a\"",
+        "sql": "CREATE INDEX \"growthSuggestion_userId_createdAt_idx_f726f04a\" ON \"public\".\"growthSuggestion\" (\"userId\", \"createdAt\")",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"growthSuggestion_userId_createdAt_idx_f726f04a\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"growthSuggestion_userId_createdAt_idx_f726f04a\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "index.growthSuggestion.growthSuggestion_userId_idx_a489d58a",
+    "label": "Create index \"growthSuggestion_userId_idx_a489d58a\" on \"growthSuggestion\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "index",
+        "name": "growthSuggestion_userId_idx_a489d58a",
+        "table": "growthSuggestion"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"growthSuggestion_userId_idx_a489d58a\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"growthSuggestion_userId_idx_a489d58a\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create index \"growthSuggestion_userId_idx_a489d58a\"",
+        "sql": "CREATE INDEX \"growthSuggestion_userId_idx_a489d58a\" ON \"public\".\"growthSuggestion\" (\"userId\")",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"growthSuggestion_userId_idx_a489d58a\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"growthSuggestion_userId_idx_a489d58a\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "index.mindsComment.mindsComment_entryId_idx_8b42d1db",
+    "label": "Create index \"mindsComment_entryId_idx_8b42d1db\" on \"mindsComment\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "index",
+        "name": "mindsComment_entryId_idx_8b42d1db",
+        "table": "mindsComment"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"mindsComment_entryId_idx_8b42d1db\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"mindsComment_entryId_idx_8b42d1db\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create index \"mindsComment_entryId_idx_8b42d1db\"",
+        "sql": "CREATE INDEX \"mindsComment_entryId_idx_8b42d1db\" ON \"public\".\"mindsComment\" (\"entryId\")",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"mindsComment_entryId_idx_8b42d1db\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"mindsComment_entryId_idx_8b42d1db\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "index.personalityInsight.personalityInsight_userId_createdAt_idx_f726f04a",
+    "label": "Create index \"personalityInsight_userId_createdAt_idx_f726f04a\" on \"personalityInsight\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "index",
+        "name": "personalityInsight_userId_createdAt_idx_f726f04a",
+        "table": "personalityInsight"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"personalityInsight_userId_createdAt_idx_f726f04a\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"personalityInsight_userId_createdAt_idx_f726f04a\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create index \"personalityInsight_userId_createdAt_idx_f726f04a\"",
+        "sql": "CREATE INDEX \"personalityInsight_userId_createdAt_idx_f726f04a\" ON \"public\".\"personalityInsight\" (\"userId\", \"createdAt\")",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"personalityInsight_userId_createdAt_idx_f726f04a\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"personalityInsight_userId_createdAt_idx_f726f04a\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "index.personalityInsight.personalityInsight_userId_idx_a489d58a",
+    "label": "Create index \"personalityInsight_userId_idx_a489d58a\" on \"personalityInsight\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "index",
+        "name": "personalityInsight_userId_idx_a489d58a",
+        "table": "personalityInsight"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"personalityInsight_userId_idx_a489d58a\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"personalityInsight_userId_idx_a489d58a\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create index \"personalityInsight_userId_idx_a489d58a\"",
+        "sql": "CREATE INDEX \"personalityInsight_userId_idx_a489d58a\" ON \"public\".\"personalityInsight\" (\"userId\")",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"personalityInsight_userId_idx_a489d58a\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"personalityInsight_userId_idx_a489d58a\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "index.recurringTopic.recurringTopic_userId_idx_a489d58a",
+    "label": "Create index \"recurringTopic_userId_idx_a489d58a\" on \"recurringTopic\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "index",
+        "name": "recurringTopic_userId_idx_a489d58a",
+        "table": "recurringTopic"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"recurringTopic_userId_idx_a489d58a\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"recurringTopic_userId_idx_a489d58a\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create index \"recurringTopic_userId_idx_a489d58a\"",
+        "sql": "CREATE INDEX \"recurringTopic_userId_idx_a489d58a\" ON \"public\".\"recurringTopic\" (\"userId\")",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"recurringTopic_userId_idx_a489d58a\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"recurringTopic_userId_idx_a489d58a\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "index.recurringTopicEntry.recurringTopicEntry_entryId_idx_8b42d1db",
+    "label": "Create index \"recurringTopicEntry_entryId_idx_8b42d1db\" on \"recurringTopicEntry\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "index",
+        "name": "recurringTopicEntry_entryId_idx_8b42d1db",
+        "table": "recurringTopicEntry"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"recurringTopicEntry_entryId_idx_8b42d1db\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"recurringTopicEntry_entryId_idx_8b42d1db\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create index \"recurringTopicEntry_entryId_idx_8b42d1db\"",
+        "sql": "CREATE INDEX \"recurringTopicEntry_entryId_idx_8b42d1db\" ON \"public\".\"recurringTopicEntry\" (\"entryId\")",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"recurringTopicEntry_entryId_idx_8b42d1db\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"recurringTopicEntry_entryId_idx_8b42d1db\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "index.recurringTopicEntry.recurringTopicEntry_topicId_idx_6f05808f",
+    "label": "Create index \"recurringTopicEntry_topicId_idx_6f05808f\" on \"recurringTopicEntry\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "index",
+        "name": "recurringTopicEntry_topicId_idx_6f05808f",
+        "table": "recurringTopicEntry"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"recurringTopicEntry_topicId_idx_6f05808f\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"recurringTopicEntry_topicId_idx_6f05808f\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create index \"recurringTopicEntry_topicId_idx_6f05808f\"",
+        "sql": "CREATE INDEX \"recurringTopicEntry_topicId_idx_6f05808f\" ON \"public\".\"recurringTopicEntry\" (\"topicId\")",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"recurringTopicEntry_topicId_idx_6f05808f\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"recurringTopicEntry_topicId_idx_6f05808f\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "index.tag.tag_userId_idx_a489d58a",
+    "label": "Create index \"tag_userId_idx_a489d58a\" on \"tag\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "index",
+        "name": "tag_userId_idx_a489d58a",
+        "table": "tag"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"tag_userId_idx_a489d58a\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"tag_userId_idx_a489d58a\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create index \"tag_userId_idx_a489d58a\"",
+        "sql": "CREATE INDEX \"tag_userId_idx_a489d58a\" ON \"public\".\"tag\" (\"userId\")",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"tag_userId_idx_a489d58a\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"tag_userId_idx_a489d58a\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "index.weeklyDigest.weeklyDigest_userId_idx_a489d58a",
+    "label": "Create index \"weeklyDigest_userId_idx_a489d58a\" on \"weeklyDigest\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "index",
+        "name": "weeklyDigest_userId_idx_a489d58a",
+        "table": "weeklyDigest"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"weeklyDigest_userId_idx_a489d58a\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"weeklyDigest_userId_idx_a489d58a\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create index \"weeklyDigest_userId_idx_a489d58a\"",
+        "sql": "CREATE INDEX \"weeklyDigest_userId_idx_a489d58a\" ON \"public\".\"weeklyDigest\" (\"userId\")",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"weeklyDigest_userId_idx_a489d58a\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"weeklyDigest_userId_idx_a489d58a\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "foreignKey.aiProcessingLogEntry.aiProcessingLogEntry_userId_fkey",
+    "label": "Add foreign key \"aiProcessingLogEntry_userId_fkey\" on \"aiProcessingLogEntry\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "foreignKey",
+        "name": "aiProcessingLogEntry_userId_fkey",
+        "table": "aiProcessingLogEntry"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure FK \"aiProcessingLogEntry_userId_fkey\" does not exist",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "aiProcessingLogEntry_userId_fkey",
+          "public",
+          "\"public\".\"aiProcessingLogEntry\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add FK \"aiProcessingLogEntry_userId_fkey\"",
+        "sql": "ALTER TABLE \"public\".\"aiProcessingLogEntry\"\nADD CONSTRAINT \"aiProcessingLogEntry_userId_fkey\"\nFOREIGN KEY (\"userId\")\nREFERENCES \"public\".\"user\" (\"id\")\nON DELETE CASCADE"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify FK \"aiProcessingLogEntry_userId_fkey\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "aiProcessingLogEntry_userId_fkey",
+          "public",
+          "\"public\".\"aiProcessingLogEntry\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "foreignKey.aiUsageCounter.aiUsageCounter_userId_fkey",
+    "label": "Add foreign key \"aiUsageCounter_userId_fkey\" on \"aiUsageCounter\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "foreignKey",
+        "name": "aiUsageCounter_userId_fkey",
+        "table": "aiUsageCounter"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure FK \"aiUsageCounter_userId_fkey\" does not exist",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "aiUsageCounter_userId_fkey",
+          "public",
+          "\"public\".\"aiUsageCounter\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add FK \"aiUsageCounter_userId_fkey\"",
+        "sql": "ALTER TABLE \"public\".\"aiUsageCounter\"\nADD CONSTRAINT \"aiUsageCounter_userId_fkey\"\nFOREIGN KEY (\"userId\")\nREFERENCES \"public\".\"user\" (\"id\")\nON DELETE CASCADE"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify FK \"aiUsageCounter_userId_fkey\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "aiUsageCounter_userId_fkey",
+          "public",
+          "\"public\".\"aiUsageCounter\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "foreignKey.chatMessage.chatMessage_sessionId_fkey",
+    "label": "Add foreign key \"chatMessage_sessionId_fkey\" on \"chatMessage\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "foreignKey",
+        "name": "chatMessage_sessionId_fkey",
+        "table": "chatMessage"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure FK \"chatMessage_sessionId_fkey\" does not exist",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "chatMessage_sessionId_fkey",
+          "public",
+          "\"public\".\"chatMessage\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add FK \"chatMessage_sessionId_fkey\"",
+        "sql": "ALTER TABLE \"public\".\"chatMessage\"\nADD CONSTRAINT \"chatMessage_sessionId_fkey\"\nFOREIGN KEY (\"sessionId\")\nREFERENCES \"public\".\"chatSession\" (\"id\")\nON DELETE CASCADE"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify FK \"chatMessage_sessionId_fkey\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "chatMessage_sessionId_fkey",
+          "public",
+          "\"public\".\"chatMessage\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "foreignKey.chatMessageSourceEntry.chatMessageSourceEntry_messageId_fkey",
+    "label": "Add foreign key \"chatMessageSourceEntry_messageId_fkey\" on \"chatMessageSourceEntry\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "foreignKey",
+        "name": "chatMessageSourceEntry_messageId_fkey",
+        "table": "chatMessageSourceEntry"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure FK \"chatMessageSourceEntry_messageId_fkey\" does not exist",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "chatMessageSourceEntry_messageId_fkey",
+          "public",
+          "\"public\".\"chatMessageSourceEntry\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add FK \"chatMessageSourceEntry_messageId_fkey\"",
+        "sql": "ALTER TABLE \"public\".\"chatMessageSourceEntry\"\nADD CONSTRAINT \"chatMessageSourceEntry_messageId_fkey\"\nFOREIGN KEY (\"messageId\")\nREFERENCES \"public\".\"chatMessage\" (\"id\")\nON DELETE CASCADE"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify FK \"chatMessageSourceEntry_messageId_fkey\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "chatMessageSourceEntry_messageId_fkey",
+          "public",
+          "\"public\".\"chatMessageSourceEntry\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "foreignKey.chatMessageSourceEntry.chatMessageSourceEntry_entryId_fkey",
+    "label": "Add foreign key \"chatMessageSourceEntry_entryId_fkey\" on \"chatMessageSourceEntry\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "foreignKey",
+        "name": "chatMessageSourceEntry_entryId_fkey",
+        "table": "chatMessageSourceEntry"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure FK \"chatMessageSourceEntry_entryId_fkey\" does not exist",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "chatMessageSourceEntry_entryId_fkey",
+          "public",
+          "\"public\".\"chatMessageSourceEntry\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add FK \"chatMessageSourceEntry_entryId_fkey\"",
+        "sql": "ALTER TABLE \"public\".\"chatMessageSourceEntry\"\nADD CONSTRAINT \"chatMessageSourceEntry_entryId_fkey\"\nFOREIGN KEY (\"entryId\")\nREFERENCES \"public\".\"entry\" (\"id\")\nON DELETE CASCADE"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify FK \"chatMessageSourceEntry_entryId_fkey\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "chatMessageSourceEntry_entryId_fkey",
+          "public",
+          "\"public\".\"chatMessageSourceEntry\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "foreignKey.chatSession.chatSession_userId_fkey",
+    "label": "Add foreign key \"chatSession_userId_fkey\" on \"chatSession\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "foreignKey",
+        "name": "chatSession_userId_fkey",
+        "table": "chatSession"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure FK \"chatSession_userId_fkey\" does not exist",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "chatSession_userId_fkey",
+          "public",
+          "\"public\".\"chatSession\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add FK \"chatSession_userId_fkey\"",
+        "sql": "ALTER TABLE \"public\".\"chatSession\"\nADD CONSTRAINT \"chatSession_userId_fkey\"\nFOREIGN KEY (\"userId\")\nREFERENCES \"public\".\"user\" (\"id\")\nON DELETE CASCADE"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify FK \"chatSession_userId_fkey\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "chatSession_userId_fkey",
+          "public",
+          "\"public\".\"chatSession\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "foreignKey.emotionTrend.emotionTrend_userId_fkey",
+    "label": "Add foreign key \"emotionTrend_userId_fkey\" on \"emotionTrend\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "foreignKey",
+        "name": "emotionTrend_userId_fkey",
+        "table": "emotionTrend"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure FK \"emotionTrend_userId_fkey\" does not exist",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "emotionTrend_userId_fkey",
+          "public",
+          "\"public\".\"emotionTrend\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add FK \"emotionTrend_userId_fkey\"",
+        "sql": "ALTER TABLE \"public\".\"emotionTrend\"\nADD CONSTRAINT \"emotionTrend_userId_fkey\"\nFOREIGN KEY (\"userId\")\nREFERENCES \"public\".\"user\" (\"id\")\nON DELETE CASCADE"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify FK \"emotionTrend_userId_fkey\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "emotionTrend_userId_fkey",
+          "public",
+          "\"public\".\"emotionTrend\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "foreignKey.entry.entry_userId_fkey",
+    "label": "Add foreign key \"entry_userId_fkey\" on \"entry\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "foreignKey",
+        "name": "entry_userId_fkey",
+        "table": "entry"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure FK \"entry_userId_fkey\" does not exist",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "entry_userId_fkey",
+          "public",
+          "\"public\".\"entry\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add FK \"entry_userId_fkey\"",
+        "sql": "ALTER TABLE \"public\".\"entry\"\nADD CONSTRAINT \"entry_userId_fkey\"\nFOREIGN KEY (\"userId\")\nREFERENCES \"public\".\"user\" (\"id\")\nON DELETE CASCADE"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify FK \"entry_userId_fkey\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "entry_userId_fkey",
+          "public",
+          "\"public\".\"entry\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "foreignKey.entryAnalysis.entryAnalysis_entryId_fkey",
+    "label": "Add foreign key \"entryAnalysis_entryId_fkey\" on \"entryAnalysis\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "foreignKey",
+        "name": "entryAnalysis_entryId_fkey",
+        "table": "entryAnalysis"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure FK \"entryAnalysis_entryId_fkey\" does not exist",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "entryAnalysis_entryId_fkey",
+          "public",
+          "\"public\".\"entryAnalysis\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add FK \"entryAnalysis_entryId_fkey\"",
+        "sql": "ALTER TABLE \"public\".\"entryAnalysis\"\nADD CONSTRAINT \"entryAnalysis_entryId_fkey\"\nFOREIGN KEY (\"entryId\")\nREFERENCES \"public\".\"entry\" (\"id\")\nON DELETE CASCADE"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify FK \"entryAnalysis_entryId_fkey\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "entryAnalysis_entryId_fkey",
+          "public",
+          "\"public\".\"entryAnalysis\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "foreignKey.entryEmotionScore.entryEmotionScore_analysisId_fkey",
+    "label": "Add foreign key \"entryEmotionScore_analysisId_fkey\" on \"entryEmotionScore\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "foreignKey",
+        "name": "entryEmotionScore_analysisId_fkey",
+        "table": "entryEmotionScore"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure FK \"entryEmotionScore_analysisId_fkey\" does not exist",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "entryEmotionScore_analysisId_fkey",
+          "public",
+          "\"public\".\"entryEmotionScore\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add FK \"entryEmotionScore_analysisId_fkey\"",
+        "sql": "ALTER TABLE \"public\".\"entryEmotionScore\"\nADD CONSTRAINT \"entryEmotionScore_analysisId_fkey\"\nFOREIGN KEY (\"analysisId\")\nREFERENCES \"public\".\"entryAnalysis\" (\"id\")\nON DELETE CASCADE"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify FK \"entryEmotionScore_analysisId_fkey\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "entryEmotionScore_analysisId_fkey",
+          "public",
+          "\"public\".\"entryEmotionScore\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "foreignKey.entrySummaryBullet.entrySummaryBullet_entryId_fkey",
+    "label": "Add foreign key \"entrySummaryBullet_entryId_fkey\" on \"entrySummaryBullet\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "foreignKey",
+        "name": "entrySummaryBullet_entryId_fkey",
+        "table": "entrySummaryBullet"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure FK \"entrySummaryBullet_entryId_fkey\" does not exist",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "entrySummaryBullet_entryId_fkey",
+          "public",
+          "\"public\".\"entrySummaryBullet\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add FK \"entrySummaryBullet_entryId_fkey\"",
+        "sql": "ALTER TABLE \"public\".\"entrySummaryBullet\"\nADD CONSTRAINT \"entrySummaryBullet_entryId_fkey\"\nFOREIGN KEY (\"entryId\")\nREFERENCES \"public\".\"entry\" (\"id\")\nON DELETE CASCADE"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify FK \"entrySummaryBullet_entryId_fkey\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "entrySummaryBullet_entryId_fkey",
+          "public",
+          "\"public\".\"entrySummaryBullet\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "foreignKey.entryTag.entryTag_entryId_fkey",
+    "label": "Add foreign key \"entryTag_entryId_fkey\" on \"entryTag\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "foreignKey",
+        "name": "entryTag_entryId_fkey",
+        "table": "entryTag"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure FK \"entryTag_entryId_fkey\" does not exist",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "entryTag_entryId_fkey",
+          "public",
+          "\"public\".\"entryTag\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add FK \"entryTag_entryId_fkey\"",
+        "sql": "ALTER TABLE \"public\".\"entryTag\"\nADD CONSTRAINT \"entryTag_entryId_fkey\"\nFOREIGN KEY (\"entryId\")\nREFERENCES \"public\".\"entry\" (\"id\")\nON DELETE CASCADE"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify FK \"entryTag_entryId_fkey\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "entryTag_entryId_fkey",
+          "public",
+          "\"public\".\"entryTag\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "foreignKey.entryTag.entryTag_tagId_fkey",
+    "label": "Add foreign key \"entryTag_tagId_fkey\" on \"entryTag\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "foreignKey",
+        "name": "entryTag_tagId_fkey",
+        "table": "entryTag"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure FK \"entryTag_tagId_fkey\" does not exist",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "entryTag_tagId_fkey",
+          "public",
+          "\"public\".\"entryTag\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add FK \"entryTag_tagId_fkey\"",
+        "sql": "ALTER TABLE \"public\".\"entryTag\"\nADD CONSTRAINT \"entryTag_tagId_fkey\"\nFOREIGN KEY (\"tagId\")\nREFERENCES \"public\".\"tag\" (\"id\")\nON DELETE CASCADE"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify FK \"entryTag_tagId_fkey\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "entryTag_tagId_fkey",
+          "public",
+          "\"public\".\"entryTag\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "foreignKey.growthSuggestion.growthSuggestion_userId_fkey",
+    "label": "Add foreign key \"growthSuggestion_userId_fkey\" on \"growthSuggestion\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "foreignKey",
+        "name": "growthSuggestion_userId_fkey",
+        "table": "growthSuggestion"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure FK \"growthSuggestion_userId_fkey\" does not exist",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "growthSuggestion_userId_fkey",
+          "public",
+          "\"public\".\"growthSuggestion\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add FK \"growthSuggestion_userId_fkey\"",
+        "sql": "ALTER TABLE \"public\".\"growthSuggestion\"\nADD CONSTRAINT \"growthSuggestion_userId_fkey\"\nFOREIGN KEY (\"userId\")\nREFERENCES \"public\".\"user\" (\"id\")\nON DELETE CASCADE"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify FK \"growthSuggestion_userId_fkey\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "growthSuggestion_userId_fkey",
+          "public",
+          "\"public\".\"growthSuggestion\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "foreignKey.mindsComment.mindsComment_entryId_fkey",
+    "label": "Add foreign key \"mindsComment_entryId_fkey\" on \"mindsComment\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "foreignKey",
+        "name": "mindsComment_entryId_fkey",
+        "table": "mindsComment"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure FK \"mindsComment_entryId_fkey\" does not exist",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "mindsComment_entryId_fkey",
+          "public",
+          "\"public\".\"mindsComment\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add FK \"mindsComment_entryId_fkey\"",
+        "sql": "ALTER TABLE \"public\".\"mindsComment\"\nADD CONSTRAINT \"mindsComment_entryId_fkey\"\nFOREIGN KEY (\"entryId\")\nREFERENCES \"public\".\"entry\" (\"id\")\nON DELETE CASCADE"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify FK \"mindsComment_entryId_fkey\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "mindsComment_entryId_fkey",
+          "public",
+          "\"public\".\"mindsComment\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "foreignKey.personalityInsight.personalityInsight_userId_fkey",
+    "label": "Add foreign key \"personalityInsight_userId_fkey\" on \"personalityInsight\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "foreignKey",
+        "name": "personalityInsight_userId_fkey",
+        "table": "personalityInsight"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure FK \"personalityInsight_userId_fkey\" does not exist",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "personalityInsight_userId_fkey",
+          "public",
+          "\"public\".\"personalityInsight\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add FK \"personalityInsight_userId_fkey\"",
+        "sql": "ALTER TABLE \"public\".\"personalityInsight\"\nADD CONSTRAINT \"personalityInsight_userId_fkey\"\nFOREIGN KEY (\"userId\")\nREFERENCES \"public\".\"user\" (\"id\")\nON DELETE CASCADE"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify FK \"personalityInsight_userId_fkey\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "personalityInsight_userId_fkey",
+          "public",
+          "\"public\".\"personalityInsight\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "foreignKey.recurringTopic.recurringTopic_userId_fkey",
+    "label": "Add foreign key \"recurringTopic_userId_fkey\" on \"recurringTopic\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "foreignKey",
+        "name": "recurringTopic_userId_fkey",
+        "table": "recurringTopic"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure FK \"recurringTopic_userId_fkey\" does not exist",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "recurringTopic_userId_fkey",
+          "public",
+          "\"public\".\"recurringTopic\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add FK \"recurringTopic_userId_fkey\"",
+        "sql": "ALTER TABLE \"public\".\"recurringTopic\"\nADD CONSTRAINT \"recurringTopic_userId_fkey\"\nFOREIGN KEY (\"userId\")\nREFERENCES \"public\".\"user\" (\"id\")\nON DELETE CASCADE"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify FK \"recurringTopic_userId_fkey\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "recurringTopic_userId_fkey",
+          "public",
+          "\"public\".\"recurringTopic\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "foreignKey.recurringTopicEntry.recurringTopicEntry_topicId_fkey",
+    "label": "Add foreign key \"recurringTopicEntry_topicId_fkey\" on \"recurringTopicEntry\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "foreignKey",
+        "name": "recurringTopicEntry_topicId_fkey",
+        "table": "recurringTopicEntry"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure FK \"recurringTopicEntry_topicId_fkey\" does not exist",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "recurringTopicEntry_topicId_fkey",
+          "public",
+          "\"public\".\"recurringTopicEntry\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add FK \"recurringTopicEntry_topicId_fkey\"",
+        "sql": "ALTER TABLE \"public\".\"recurringTopicEntry\"\nADD CONSTRAINT \"recurringTopicEntry_topicId_fkey\"\nFOREIGN KEY (\"topicId\")\nREFERENCES \"public\".\"recurringTopic\" (\"id\")\nON DELETE CASCADE"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify FK \"recurringTopicEntry_topicId_fkey\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "recurringTopicEntry_topicId_fkey",
+          "public",
+          "\"public\".\"recurringTopicEntry\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "foreignKey.recurringTopicEntry.recurringTopicEntry_entryId_fkey",
+    "label": "Add foreign key \"recurringTopicEntry_entryId_fkey\" on \"recurringTopicEntry\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "foreignKey",
+        "name": "recurringTopicEntry_entryId_fkey",
+        "table": "recurringTopicEntry"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure FK \"recurringTopicEntry_entryId_fkey\" does not exist",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "recurringTopicEntry_entryId_fkey",
+          "public",
+          "\"public\".\"recurringTopicEntry\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add FK \"recurringTopicEntry_entryId_fkey\"",
+        "sql": "ALTER TABLE \"public\".\"recurringTopicEntry\"\nADD CONSTRAINT \"recurringTopicEntry_entryId_fkey\"\nFOREIGN KEY (\"entryId\")\nREFERENCES \"public\".\"entry\" (\"id\")\nON DELETE CASCADE"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify FK \"recurringTopicEntry_entryId_fkey\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "recurringTopicEntry_entryId_fkey",
+          "public",
+          "\"public\".\"recurringTopicEntry\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "foreignKey.tag.tag_userId_fkey",
+    "label": "Add foreign key \"tag_userId_fkey\" on \"tag\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "foreignKey",
+        "name": "tag_userId_fkey",
+        "table": "tag"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure FK \"tag_userId_fkey\" does not exist",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "tag_userId_fkey",
+          "public",
+          "\"public\".\"tag\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add FK \"tag_userId_fkey\"",
+        "sql": "ALTER TABLE \"public\".\"tag\"\nADD CONSTRAINT \"tag_userId_fkey\"\nFOREIGN KEY (\"userId\")\nREFERENCES \"public\".\"user\" (\"id\")\nON DELETE CASCADE"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify FK \"tag_userId_fkey\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "tag_userId_fkey",
+          "public",
+          "\"public\".\"tag\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "foreignKey.weeklyDigest.weeklyDigest_userId_fkey",
+    "label": "Add foreign key \"weeklyDigest_userId_fkey\" on \"weeklyDigest\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "foreignKey",
+        "name": "weeklyDigest_userId_fkey",
+        "table": "weeklyDigest"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure FK \"weeklyDigest_userId_fkey\" does not exist",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "weeklyDigest_userId_fkey",
+          "public",
+          "\"public\".\"weeklyDigest\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add FK \"weeklyDigest_userId_fkey\"",
+        "sql": "ALTER TABLE \"public\".\"weeklyDigest\"\nADD CONSTRAINT \"weeklyDigest_userId_fkey\"\nFOREIGN KEY (\"userId\")\nREFERENCES \"public\".\"user\" (\"id\")\nON DELETE CASCADE"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify FK \"weeklyDigest_userId_fkey\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "weeklyDigest_userId_fkey",
+          "public",
+          "\"public\".\"weeklyDigest\""
+        ]
+      }
+    ]
+  }
+]

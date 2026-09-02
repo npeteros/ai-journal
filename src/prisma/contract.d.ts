@@ -33,9 +33,9 @@ import type {
 } from '@prisma/orm-postgres/contract/types';
 
 export type StorageHash =
-  StorageHashBase<'c2548a472182a735cf91b148c174b75e99df3ce40a12e4661becb23264643077'>;
+  StorageHashBase<'d41654b26e6b60d605ae65316558a19693014e27cdb771b09d228ea2484d89ad'>;
 export type ExecutionHash =
-  ExecutionHashBase<'0965b9c8c099d28296e7819e9a7b6208be9a7fdabe6b5dbae369385399366f4b'>;
+  ExecutionHashBase<'c1291702c0b804ef37cf1993ce6dcb73cf929b2a9b865d781566c5501fed2ab1'>;
 export type ProfileHash =
   ProfileHashBase<'3916f444a8a17ad749191acf9e08dad97d1a327b88c2f1d45d12f240296aa8b2'>;
 
@@ -388,7 +388,6 @@ export type FieldOutputTypes = {
     readonly User: {
       readonly id: CodecTypes['pg/text@1']['output'];
       readonly email: CodecTypes['pg/text@1']['output'];
-      readonly passwordHash: CodecTypes['pg/text@1']['output'] | null;
       readonly displayName: CodecTypes['pg/text@1']['output'] | null;
       readonly theme: 'light' | 'dark';
       readonly reminderEnabled: CodecTypes['pg/bool@1']['output'];
@@ -561,7 +560,6 @@ export type FieldInputTypes = {
     readonly User: {
       readonly id: CodecTypes['pg/text@1']['input'];
       readonly email: CodecTypes['pg/text@1']['input'];
-      readonly passwordHash: CodecTypes['pg/text@1']['input'] | null;
       readonly displayName: CodecTypes['pg/text@1']['input'] | null;
       readonly theme: 'light' | 'dark';
       readonly reminderEnabled: CodecTypes['pg/bool@1']['input'];
@@ -740,7 +738,6 @@ export type StorageColumnTypes = {
       readonly id: CodecTypes['pg/text@1']['output'];
       readonly lastEntryDate: CodecTypes['pg/date-string@1']['output'] | null;
       readonly longestStreak: CodecTypes['pg/int4@1']['output'];
-      readonly passwordHash: CodecTypes['pg/text@1']['output'] | null;
       readonly reminderChannel: 'browser' | 'email';
       readonly reminderEnabled: CodecTypes['pg/bool@1']['output'];
       readonly reminderTime: CodecTypes['pg/text@1']['output'] | null;
@@ -913,7 +910,6 @@ export type StorageColumnInputTypes = {
       readonly id: CodecTypes['pg/text@1']['input'];
       readonly lastEntryDate: CodecTypes['pg/date-string@1']['input'] | null;
       readonly longestStreak: CodecTypes['pg/int4@1']['input'];
-      readonly passwordHash: CodecTypes['pg/text@1']['input'] | null;
       readonly reminderChannel: 'browser' | 'email';
       readonly reminderEnabled: CodecTypes['pg/bool@1']['input'];
       readonly reminderTime: CodecTypes['pg/text@1']['input'] | null;
@@ -2037,11 +2033,6 @@ type ContractBase = Omit<
                   readonly nativeType: 'text';
                   readonly codecId: 'pg/text@1';
                   readonly nullable: false;
-                };
-                readonly passwordHash: {
-                  readonly nativeType: 'text';
-                  readonly codecId: 'pg/text@1';
-                  readonly nullable: true;
                 };
                 readonly displayName: {
                   readonly nativeType: 'text';
@@ -3397,10 +3388,6 @@ type ContractBase = Omit<
                 readonly nullable: false;
                 readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
               };
-              readonly passwordHash: {
-                readonly nullable: true;
-                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
-              };
               readonly displayName: {
                 readonly nullable: true;
                 readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
@@ -3570,7 +3557,6 @@ type ContractBase = Omit<
               readonly fields: {
                 readonly id: { readonly column: 'id' };
                 readonly email: { readonly column: 'email' };
-                readonly passwordHash: { readonly column: 'passwordHash' };
                 readonly displayName: { readonly column: 'displayName' };
                 readonly theme: { readonly column: 'theme' };
                 readonly reminderEnabled: { readonly column: 'reminderEnabled' };
@@ -3889,14 +3875,6 @@ type ContractBase = Omit<
           readonly ref: {
             readonly namespace: 'public';
             readonly table: 'tag';
-            readonly column: 'id';
-          };
-          readonly onCreate: { readonly kind: 'generator'; readonly id: 'uuidv4' };
-        },
-        {
-          readonly ref: {
-            readonly namespace: 'public';
-            readonly table: 'user';
             readonly column: 'id';
           };
           readonly onCreate: { readonly kind: 'generator'; readonly id: 'uuidv4' };

@@ -67,9 +67,8 @@ enum TrendPeriod {
 // ---- Models ----------------------------------------------------------------
 
 model User {
-  id              String             @id @default(uuid())
+  id              String             @id
   email           String             @unique
-  passwordHash    String?
   displayName     String?
   theme           ThemePreference    @default(light)
   reminderEnabled Boolean            @default(false)
@@ -224,7 +223,6 @@ model ChatMessage {
 
   @@index([sessionId, createdAt])
 }
-
 
 model ChatMessageSourceEntry {
   messageId String
