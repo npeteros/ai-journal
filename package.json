@@ -9,7 +9,8 @@
     "start": "next start",
     "lint": "eslint",
     "contract:emit": "prisma contract emit",
-    "postinstall": "prisma skills sync || exit 0"
+    "postinstall": "prisma skills sync || exit 0",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@prisma/orm-postgres": "^8.0.0-rc.8",
