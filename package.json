@@ -10,6 +10,7 @@
     "lint:fix": "oxlint --fix"
   },
   "dependencies": {
+    "better-auth": "^1.7.14",
     "lefthook": "^2.2.2",
     "next": "16.4.3",
     "react": "19.3.1",
