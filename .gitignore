@@ -40,6 +40,11 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
+# mastra (local dev storage, tracing, build output)
+mastra.db*
+mastra.duckdb*
+.mastra/
+
 # local docs and design
 /local_docs
 /design

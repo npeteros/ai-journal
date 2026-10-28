@@ -13,10 +13,29 @@
     "lint:fix": "oxlint --fix"
   },
   "dependencies": {
+    "@ai-sdk/openai": "^4.0.103",
+    "@ai-sdk/react": "^4.0.158",
+    "@mastra/ai-sdk": "^1.11.2",
+    "@mastra/core": "^1.79.0",
+    "@mastra/duckdb": "^1.15.0",
+    "@mastra/libsql": "^1.27.0",
+    "@mastra/loggers": "^1.3.9",
+    "@mastra/memory": "^1.39.0",
+    "@mastra/observability": "^1.21.0",
+    "@shadcn/react": "^0.3.1",
+    "ai": "^7.0.154",
+    "class-variance-authority": "^0.7.1",
+    "cn": "^0.5.0",
     "lefthook": "^2.2.2",
+    "lucide-react": "^1.62.0",
+    "mastra": "^1.35.0",
     "next": "16.4.3",
+    "radix-ui": "^1.8.1",
     "react": "19.3.1",
-    "react-dom": "19.3.1"
+    "react-dom": "19.3.1",
+    "shadcn": "^4.23.0",
+    "tw-animate-css": "^1.4.0",
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
