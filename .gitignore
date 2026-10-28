@@ -44,3 +44,7 @@ next-env.d.ts
 mastra.db*
 mastra.duckdb*
 .mastra/
+
+# local docs and design
+/local_docs
+/design
