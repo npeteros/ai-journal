@@ -10,8 +10,7 @@
     "test": "vitest",
     "test:run": "vitest run",
     "lint": "oxlint",
-    "lint:fix": "oxlint --fix",
-    "typecheck": "tsc --noEmit"
+    "lint:fix": "oxlint --fix"
   },
   "dependencies": {
     "better-auth": "^1.7.14",
