@@ -3,7 +3,11 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-// import { authClient } from "@/lib/auth-client";
+import { useForm, useWatch } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
+
+import { signUp } from '@/src/lib/auth-client'
+import { registerSchema, type RegisterValues } from '@/src/server/auth/schemas/register'
 
 const serif = 'font-[family-name:var(--font-serif)]'
 
@@ -39,35 +43,29 @@ function EyeIcon({ off }: { off: boolean }) {
 
 export default function RegisterPage() {
   const router = useRouter()
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [confirm, setConfirm] = useState('')
   const [showPassword, setShowPassword] = useState(false)
-  const [agreed, setAgreed] = useState(false)
-  const [error, setError] = useState('')
-  const [loading, setLoading] = useState(false)
 
-  const strength = getStrength(password)
+  const {
+    register,
+    control,
+    handleSubmit,
+    setError,
+    formState: { errors, isSubmitting },
+  } = useForm<RegisterValues>({
+    resolver: zodResolver(registerSchema),
+    defaultValues: { name: '', email: '', password: '', confirm: '', agreed: false },
+  })
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault()
-    setError('')
+  const strength = getStrength(useWatch({ control, name: 'password' }))
 
-    if (password.length < 8 || !/[0-9]/.test(password)) {
-      return setError('Password must be at least 8 characters, including a number.')
-    }
-    if (password !== confirm) return setError("Passwords don't match.")
-    if (!agreed) return setError('Please agree to the Terms and Privacy Policy.')
-
-    setLoading(true)
-    /*   const { error } = await authClient.signUp.email({
+  async function onSubmit({ name, email, password }: RegisterValues) {
+    const { error } = await signUp.email({
       email,
       password,
-      name: email.split("@")[0],
-  }); */
-    setLoading(false)
+      name,
+    })
 
-    //  if (error) return setError(error.message ?? "Something went wrong.");
+    if (error) return setError('root', { message: error.message ?? 'Something went wrong.' })
     router.push('/')
   }
 
@@ -99,7 +97,7 @@ export default function RegisterPage() {
       </aside>
 
       <section className="flex items-center justify-center bg-[#fcfaf6] px-6">
-        <form onSubmit={handleSubmit} className="w-full max-w-[450px]">
+        <form onSubmit={handleSubmit(onSubmit)} noValidate className="w-full max-w-[450px]">
           <h1 className={`text-[38px] leading-tight text-[#1f1c16] ${serif}`}>
             Create your account
           </h1>
@@ -107,18 +105,33 @@ export default function RegisterPage() {
             Start a private journal that grows with you.
           </p>
 
-          <label htmlFor="email" className="mt-10 block text-sm font-medium text-[#1f1c16]">
+          <label htmlFor="name" className="mt-10 block text-sm font-medium text-[#1f1c16]">
+            Name
+          </label>
+          <input
+            id="name"
+            type="text"
+            autoComplete="name"
+            placeholder="Maya Chen"
+            aria-invalid={!!errors.name}
+            className={`mt-2 ${input}`}
+            {...register('name')}
+          />
+          {errors.name && <p className="mt-2 text-sm text-red-600">{errors.name.message}</p>}
+
+          <label htmlFor="email" className="mt-6 block text-sm font-medium text-[#1f1c16]">
             Email
           </label>
           <input
             id="email"
             type="email"
-            required
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
+            autoComplete="email"
             placeholder="maya@example.com"
+            aria-invalid={!!errors.email}
             className={`mt-2 ${input}`}
+            {...register('email')}
           />
+          {errors.email && <p className="mt-2 text-sm text-red-600">{errors.email.message}</p>}
 
           <label htmlFor="password" className="mt-6 block text-sm font-medium text-[#1f1c16]">
             Password
@@ -127,10 +140,10 @@ export default function RegisterPage() {
             <input
               id="password"
               type={showPassword ? 'text' : 'password'}
-              required
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              autoComplete="new-password"
+              aria-invalid={!!errors.password}
               className={`${input} pr-12`}
+              {...register('password')}
             />
             <button
               type="button"
@@ -150,7 +163,7 @@ export default function RegisterPage() {
               />
             ))}
           </div>
-          <p className="mt-2 text-sm text-[#6b6862]">
+          <p className={`mt-2 text-sm ${errors.password ? 'text-red-600' : 'text-[#6b6862]'}`}>
             {strength > 0 && `${strengthLabel[strength]} — `}at least 8 characters, including a
             number.
           </p>
@@ -161,17 +174,18 @@ export default function RegisterPage() {
           <input
             id="confirm"
             type={showPassword ? 'text' : 'password'}
-            required
-            value={confirm}
-            onChange={(e) => setConfirm(e.target.value)}
+            autoComplete="new-password"
+            aria-invalid={!!errors.confirm}
             className={`mt-2 ${input}`}
+            {...register('confirm')}
           />
+          {errors.confirm && <p className="mt-2 text-sm text-red-600">{errors.confirm.message}</p>}
 
           <label className="mt-6 flex items-center gap-3 text-sm text-[#6b6862]">
             <input
               type="checkbox"
-              checked={agreed}
-              onChange={(e) => setAgreed(e.target.checked)}
+              aria-invalid={!!errors.agreed}
+              {...register('agreed')}
               className="h-5 w-5 rounded accent-[#1f1c16]"
             />
             <span>
@@ -187,14 +201,20 @@ export default function RegisterPage() {
             </span>
           </label>
 
-          {error && <p className="mt-4 text-sm text-red-600">{error}</p>}
+          {errors.agreed && <p className="mt-2 text-sm text-red-600">{errors.agreed.message}</p>}
+
+          {errors.root && (
+            <p role="alert" className="mt-4 text-sm text-red-600">
+              {errors.root.message}
+            </p>
+          )}
 
           <button
             type="submit"
-            disabled={loading}
+            disabled={isSubmitting}
             className="mt-8 w-full rounded-xl bg-[#1f1c16] py-4 text-base font-medium text-white disabled:opacity-60"
           >
-            {loading ? 'Creating account…' : 'Create account'}
+            {isSubmitting ? 'Creating account…' : 'Create account'}
           </button>
 
           <p className="mt-6 text-center text-[15px] text-[#8a867e]">

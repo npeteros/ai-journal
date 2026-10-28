@@ -32,6 +32,7 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+!.env.example
 
 # vercel
 .vercel
@@ -48,3 +49,9 @@ mastra.duckdb*
 # local docs and design
 /local_docs
 /design
+
+/src/generated/prisma
+
+# agent skill symlinks (recreated from skills-lock.json)
+/.claude/skills/
+/.windsurf/skills/
