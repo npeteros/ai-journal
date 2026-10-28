@@ -2,51 +2,25 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
-
-import { authClient } from '@/lib/auth-client'
 
 // Where to send the user after a successful sign in.
-const AFTER_LOGIN_URL = '/dashboard'
+const _AFTER_LOGIN_URL = '/dashboard'
 
 const inputClass =
   'h-14 w-full rounded-2xl border border-[#e8e3d9] bg-[#fdfbf7] px-4 text-[15px] text-[#1f1c17] placeholder:text-[#a39d92] outline-none transition-colors focus:border-[#1f1c17] disabled:opacity-60'
 
 export function LoginForm() {
-  const router = useRouter()
-
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
-  const [loading, setLoading] = useState(false)
+  const [loading, _setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     setError(null)
 
-    await authClient.signIn.email(
-      {
-        email,
-        password,
-        callbackURL: AFTER_LOGIN_URL,
-      },
-      {
-        onRequest: () => setLoading(true),
-        onSuccess: () => {
-          router.push(AFTER_LOGIN_URL)
-          router.refresh()
-        },
-        onError: (ctx) => {
-          setLoading(false)
-          setError(
-            ctx.error.status === 403
-              ? 'Please verify your email address first.'
-              : ctx.error.message || 'Something went wrong. Please try again.',
-          )
-        },
-      },
-    )
+    // TODO: Replace this with your own authentication logic.
   }
 
   return (
