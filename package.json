@@ -11,7 +11,7 @@
     "test:run": "vitest run",
     "lint": "oxlint",
     "lint:fix": "oxlint --fix",
-    "postinstall": "next typegen"
+    "postinstall": "prisma generate && next typegen"
   },
   "dependencies": {
     "@ai-sdk/openai": "^4.0.103",
