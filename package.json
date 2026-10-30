@@ -11,7 +11,7 @@
     "test:run": "vitest run",
     "lint": "oxlint",
     "lint:fix": "oxlint --fix",
-    "postinstall": "next typegen"
+    "postinstall": "prisma generate && next typegen"
   },
   "dependencies": {
     "@ai-sdk/openai": "^4.0.103",
@@ -27,6 +27,10 @@
     "@prisma/adapter-pg": "^7.10.1",
     "@prisma/client": "^7.10.1",
     "@shadcn/react": "^0.3.1",
+    "@tanstack/react-query": "^5.105.0",
+    "@trpc/client": "^11.22.1",
+    "@trpc/server": "^11.22.1",
+    "@trpc/tanstack-react-query": "^11.22.1",
     "ai": "^7.0.154",
     "better-auth": "^1.7.14",
     "class-variance-authority": "^0.7.1",
