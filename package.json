@@ -9,6 +9,7 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest",
     "test:run": "vitest run",
+    "eval": "vitest run --config vitest.eval.config.mts",
     "lint": "oxlint",
     "lint:fix": "oxlint --fix",
     "postinstall": "prisma generate && next typegen"
@@ -50,6 +51,7 @@
     "zod": "^4.6.7"
   },
   "devDependencies": {
+    "@mastra/evals": "^1.10.9",
     "@tailwindcss/postcss": "^4",
     "@testing-library/dom": "^10.4.2",
     "@testing-library/react": "^16.3.3",
@@ -69,7 +71,10 @@
   },
   "overrides": {
     "@types/react": "19.3.0",
-    "@types/react-dom": "19.3.0"
+    "@types/react-dom": "19.3.0",
+    "@mastra/evals": {
+      "vitest": "$vitest"
+    }
   },
   "allowScripts": {
     "lefthook@2.2.2": true

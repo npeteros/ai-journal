@@ -13,15 +13,16 @@ datasource db {
 }
 
 model User {
-  id            String    @id
+  id            String       @id
   name          String
   email         String
-  emailVerified Boolean   @default(false)
+  emailVerified Boolean      @default(false)
   image         String?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
   sessions      Session[]
   accounts      Account[]
+  aiUsageLogs   AiUsageLog[]
 
   @@unique([email])
   @@map("user")
@@ -73,4 +74,21 @@ model Verification {
 
   @@index([identifier])
   @@map("verification")
+}
+
+// One row per AI agent/workflow call; backs per-user rate limiting and usage reporting.
+model AiUsageLog {
+  id           String   @id @default(uuid()) @db.Uuid
+  userId       String? // Matches better-auth User.id; null for system calls
+  user         User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  agent        String
+  model        String
+  inputTokens  Int
+  outputTokens Int
+  latencyMs    Int
+  success      Boolean
+  createdAt    DateTime @default(now())
+
+  @@index([userId, createdAt])
+  @@map("ai_usage_log")
 }
