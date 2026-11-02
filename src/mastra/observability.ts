@@ -7,6 +7,7 @@ import {
   MastraPlatformExporter,
   SensitiveDataFilter,
 } from '@mastra/observability'
+import { USER_ID_KEY } from './guardrails/requestContext'
 
 type LogLevelValue = (typeof LogLevel)[keyof typeof LogLevel]
 
@@ -55,7 +56,7 @@ export const observability = new Observability({
         new ContentRedactionProcessor(), // Hides prompts/completions unless AI_LOG_CONTENT=true
       ],
       // Attach the caller's user ID (set by the AI guardrails) to every trace
-      requestContextKeys: ['userId'],
+      requestContextKeys: [USER_ID_KEY],
     },
   },
 })

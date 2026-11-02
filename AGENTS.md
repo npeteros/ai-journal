@@ -17,6 +17,7 @@ Load the `mastra` skill BEFORE any Mastra work. Never rely on cached knowledge â
 ## Rules
 
 - Register all agents, tools, workflows, and scorers in `src/mastra/index.ts`
+- Every agent must list `aiUsageProcessor` (`src/mastra/guardrails/AiUsageProcessor.ts`) in both `inputProcessors` and `outputProcessors`, so rate limiting and usage logging apply however it is called. Pass `createUserRequestContext(userId)` as `requestContext` for user-triggered calls, including `agent.generate()`/`agent.stream()` inside workflow steps (it isn't propagated automatically)
 - Use the `dev` and `build` scripts from `package.json` instead of running `mastra dev` / `mastra build` directly
 
 ## Resources

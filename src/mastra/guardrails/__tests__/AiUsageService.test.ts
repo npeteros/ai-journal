@@ -121,6 +121,17 @@ describe('AiUsageService', () => {
       const { where } = tx.aiUsageLog.count.mock.calls[0][0]
       expect(where.userId).toBe('user-42')
     })
+
+    it('inserts a system row without locking or counting when userId is null', async () => {
+      const { tx, service } = setup()
+
+      await expect(service.reserve({ ...reservation, userId: null })).resolves.toBe('usage-1')
+      expect(tx.$executeRaw).not.toHaveBeenCalled()
+      expect(tx.aiUsageLog.count).not.toHaveBeenCalled()
+      expect(tx.aiUsageLog.create).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ userId: null }) }),
+      )
+    })
   })
 
   describe('finalize', () => {

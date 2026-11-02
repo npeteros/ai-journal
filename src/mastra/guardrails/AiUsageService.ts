@@ -8,7 +8,8 @@ const DEFAULT_WINDOW_SECONDS = 3600
 const DEFAULT_MAX_CALLS = 50
 
 export type AiUsageReservation = {
-  userId: string
+  /** Null for system calls (e.g. workflows with no signed-in user), which skip the rate limit. */
+  userId: string | null
   agent: string
   model: string
 }
@@ -69,18 +70,21 @@ export class AiUsageService {
     const windowStart = new Date(Date.now() - windowSeconds * 1000)
 
     return this.db.$transaction(async (tx) => {
-      // Serialises reservations per user so concurrent requests can't all pass the count.
-      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${userId}))`
+      // System calls (no user) are logged but not rate-limited.
+      if (userId !== null) {
+        // Serialises reservations per user so concurrent requests can't all pass the count.
+        await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${userId}))`
 
-      const count = await tx.aiUsageLog.count({
-        where: { userId, createdAt: { gte: windowStart } },
-      })
-
-      if (count >= maxCalls) {
-        throw new TRPCError({
-          code: 'TOO_MANY_REQUESTS',
-          message: `AI rate limit exceeded: ${maxCalls} calls per ${windowSeconds}s`,
+        const count = await tx.aiUsageLog.count({
+          where: { userId, createdAt: { gte: windowStart } },
         })
+
+        if (count >= maxCalls) {
+          throw new TRPCError({
+            code: 'TOO_MANY_REQUESTS',
+            message: `AI rate limit exceeded: ${maxCalls} calls per ${windowSeconds}s`,
+          })
+        }
       }
 
       const row = await tx.aiUsageLog.create({
