@@ -1,0 +1,387 @@
+/*
+ * JADEN "living paper" layer: page atmosphere, frosted cards and ambient effects.
+ * Ambient, always-on effects stay in CSS (cheap, no JS). Enter/exit and interaction
+ * animations live in React via `motion` (see components/motion/*).
+ * Tokens (--lv-*, --cta-*, --shadow-*, --ease-*) are defined in globals.css for both themes.
+ */
+
+/* ---- Atmosphere: drifting colour fields + paper grain ---- */
+.lv-paper {
+  position: relative;
+  isolation: isolate;
+  /* clip (not hidden): trims the aura without making the page a scroll container, so sticky works */
+  overflow: clip;
+}
+.lv-paper::before {
+  content: '';
+  position: absolute;
+  inset: -25%;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(30% 24% at 22% 14%, var(--lv-a), transparent 70%),
+    radial-gradient(32% 26% at 86% 30%, var(--lv-b), transparent 70%),
+    radial-gradient(36% 28% at 30% 86%, var(--lv-c), transparent 70%);
+  filter: blur(10px);
+  animation: lv-drift 28s ease-in-out infinite alternate;
+}
+.lv-paper::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 .32 0 0 0 0 .24 0 0 0 0 .14 0 0 0 .5 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+  opacity: var(--lv-grain-opacity);
+  mix-blend-mode: var(--lv-grain-blend);
+}
+/* Fixed variant for full-height app backgrounds (aura stays put while content scrolls). */
+.lv-paper-fixed::before,
+.lv-paper-fixed::after {
+  position: fixed;
+}
+.lv-mist {
+  --lv-a: oklch(89% 0.06 300 / 0.45);
+  --lv-b: oklch(88% 0.08 252 / 0.55);
+  --lv-c: oklch(91% 0.05 200 / 0.4);
+}
+.lv-meadow {
+  --lv-a: oklch(90% 0.07 120 / 0.45);
+  --lv-b: oklch(90% 0.05 200 / 0.35);
+  --lv-c: oklch(88% 0.08 150 / 0.5);
+}
+.lv-dusk {
+  --lv-a: oklch(86% 0.1 55 / 0.6);
+  --lv-b: oklch(88% 0.07 20 / 0.4);
+  --lv-c: oklch(90% 0.06 300 / 0.35);
+}
+.dark .lv-mist {
+  --lv-a: oklch(36% 0.06 300 / 0.35);
+  --lv-b: oklch(36% 0.08 252 / 0.4);
+  --lv-c: oklch(36% 0.05 200 / 0.3);
+}
+.dark .lv-meadow {
+  --lv-a: oklch(36% 0.07 120 / 0.35);
+  --lv-b: oklch(36% 0.05 200 / 0.3);
+  --lv-c: oklch(36% 0.08 150 / 0.4);
+}
+.dark .lv-dusk {
+  --lv-a: oklch(38% 0.1 55 / 0.45);
+  --lv-b: oklch(36% 0.07 20 / 0.35);
+  --lv-c: oklch(36% 0.06 300 / 0.3);
+}
+.lv-still::before {
+  animation: none;
+}
+@keyframes lv-drift {
+  0% {
+    transform: translate3d(0, 0, 0) scale(1) rotate(0deg);
+  }
+  50% {
+    transform: translate3d(4%, 3%, 0) scale(1.08) rotate(5deg);
+  }
+  100% {
+    transform: translate3d(-3%, 5%, 0) scale(1.03) rotate(-4deg);
+  }
+}
+
+/* ---- Surfaces: frosted paper that lifts on hover ---- */
+.lv-card {
+  background: var(--lv-card-bg);
+  -webkit-backdrop-filter: blur(14px) saturate(1.25);
+  backdrop-filter: blur(14px) saturate(1.25);
+  border: 1px solid var(--lv-card-border);
+  box-shadow:
+    var(--shadow-sm),
+    inset 0 1px 0 var(--lv-card-inset);
+  transition:
+    transform 0.5s var(--ease-spring),
+    box-shadow 0.4s ease,
+    border-color 0.4s ease;
+}
+.lv-card-hover:hover {
+  transform: translateY(-3px);
+  box-shadow:
+    var(--shadow-md),
+    inset 0 1px 0 var(--lv-card-inset);
+  border-color: var(--lv-card-border-hover);
+}
+
+/* Mood spine on entry cards */
+.lv-mood {
+  position: relative;
+  overflow: hidden;
+}
+.lv-mood::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 14px;
+  bottom: 14px;
+  width: 3px;
+  border-radius: 0 3px 3px 0;
+  background: var(--lv-mood, var(--sage-500));
+  opacity: 0.9;
+}
+.lv-mood-sage {
+  --lv-mood: var(--sage-500);
+}
+.lv-mood-amber {
+  --lv-mood: var(--amber-500);
+}
+.lv-mood-cloud {
+  --lv-mood: var(--cloud-500);
+}
+.lv-mood-rose {
+  --lv-mood: var(--rose-500);
+}
+.lv-mood-neutral {
+  --lv-mood: var(--neutral-600);
+}
+
+/* ---- Data: lines draw, bars grow (CSS fallback; motion handles React-driven charts) ---- */
+.lv-draw {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 0;
+  animation: lv-draw 1.8s var(--ease-out) 0.35s backwards;
+}
+@keyframes lv-draw {
+  from {
+    stroke-dashoffset: 1;
+  }
+}
+
+/* ---- Momentum: the streak flame is alive ---- */
+.lv-flame {
+  transform-origin: 50% 90%;
+  animation: lv-flicker 2.6s ease-in-out infinite;
+  filter: drop-shadow(0 0 4px oklch(78% 0.15 60 / 0.7));
+  overflow: visible;
+}
+@keyframes lv-flicker {
+  0%,
+  100% {
+    transform: scale(1) rotate(0deg);
+  }
+  22% {
+    transform: scale(1.09, 0.94) rotate(-4deg);
+  }
+  48% {
+    transform: scale(0.95, 1.08) rotate(3deg);
+  }
+  74% {
+    transform: scale(1.04, 0.98) rotate(-1deg);
+  }
+}
+.lv-ember {
+  background: linear-gradient(
+    120deg,
+    var(--amber-100),
+    color-mix(in oklch, var(--amber-100), var(--amber-200) 60%),
+    var(--amber-100)
+  );
+  background-size: 220% 100%;
+  animation: lv-ember 5s ease-in-out infinite;
+  box-shadow: 0 6px 18px -8px oklch(70% 0.15 55 / 0.6);
+}
+@keyframes lv-ember {
+  0%,
+  100% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+}
+
+/* ---- Primary action: ink with depth and a slow sheen ---- */
+.lv-cta {
+  position: relative;
+  overflow: hidden;
+  color: var(--cta-fg);
+  background: linear-gradient(135deg, var(--cta-from), var(--cta-to));
+  box-shadow:
+    0 12px 26px -12px oklch(22% 0.04 60 / 0.7),
+    inset 0 1px 0 oklch(100% 0 0 / 0.14);
+  transition:
+    transform 0.35s var(--ease-spring),
+    box-shadow 0.35s ease;
+}
+.lv-cta::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(105deg, transparent 35%, oklch(100% 0 0 / 0.18) 50%, transparent 65%);
+  transform: translateX(-120%);
+  animation: lv-sheen 6s ease-in-out 1.6s infinite;
+}
+.lv-cta:hover {
+  transform: translateY(-1px);
+  box-shadow:
+    0 18px 30px -12px oklch(22% 0.04 60 / 0.75),
+    inset 0 1px 0 oklch(100% 0 0 / 0.14);
+}
+@keyframes lv-sheen {
+  0% {
+    transform: translateX(-120%);
+  }
+  22%,
+  100% {
+    transform: translateX(120%);
+  }
+}
+
+/* ---- AI presence: glint on words JADEN wrote, a breathing orb ---- */
+.lv-glint {
+  background: linear-gradient(
+    90deg,
+    var(--cloud-700),
+    var(--cloud-500),
+    var(--lilac-500),
+    var(--cloud-700)
+  );
+  background-size: 300% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: lv-glint 7s linear infinite;
+}
+@keyframes lv-glint {
+  to {
+    background-position: 300% 0;
+  }
+}
+.lv-orb {
+  border-radius: 50%;
+  background: radial-gradient(
+    circle at 35% 30%,
+    oklch(97% 0.03 250),
+    oklch(78% 0.1 255) 45%,
+    oklch(66% 0.12 300) 100%
+  );
+  box-shadow:
+    0 0 0 0 oklch(70% 0.12 260 / 0.45),
+    0 8px 24px -6px oklch(60% 0.14 270 / 0.6);
+  animation: lv-breathe 4.2s ease-in-out infinite;
+}
+@keyframes lv-breathe {
+  0%,
+  100% {
+    transform: scale(1);
+    box-shadow:
+      0 0 0 0 oklch(70% 0.12 260 / 0.4),
+      0 8px 24px -6px oklch(60% 0.14 270 / 0.55);
+  }
+  50% {
+    transform: scale(1.06);
+    box-shadow:
+      0 0 0 10px oklch(70% 0.12 260 / 0),
+      0 10px 30px -6px oklch(60% 0.14 270 / 0.7);
+  }
+}
+.lv-typing {
+  display: inline-flex;
+  gap: 4px;
+  align-items: center;
+}
+.lv-typing i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--cloud-500);
+  animation: lv-typing 1.3s ease-in-out infinite;
+}
+.lv-typing i:nth-child(2) {
+  animation-delay: 0.18s;
+}
+.lv-typing i:nth-child(3) {
+  animation-delay: 0.36s;
+}
+@keyframes lv-typing {
+  0%,
+  60%,
+  100% {
+    transform: translateY(0);
+    opacity: 0.35;
+  }
+  30% {
+    transform: translateY(-4px);
+    opacity: 1;
+  }
+}
+.lv-caret {
+  display: inline-block;
+  width: 2px;
+  height: 1.1em;
+  margin-left: 1px;
+  vertical-align: -0.15em;
+  background: var(--cloud-500);
+  border-radius: 1px;
+  animation: lv-caret 1.1s steps(1) infinite;
+}
+@keyframes lv-caret {
+  50% {
+    opacity: 0;
+  }
+}
+
+/* ---- Ambient helpers ---- */
+.lv-float {
+  animation: lv-float 7s ease-in-out infinite;
+  animation-delay: calc(var(--i, 0) * -1.7s);
+}
+@keyframes lv-float {
+  0%,
+  100% {
+    transform: translateY(0) rotate(var(--r, 0deg));
+  }
+  50% {
+    transform: translateY(-8px) rotate(calc(var(--r, 0deg) * -1));
+  }
+}
+.lv-wave {
+  transform-origin: center;
+  animation: lv-wave 1.1s ease-in-out infinite;
+  animation-delay: calc(var(--i, 0) * -0.13s);
+}
+@keyframes lv-wave {
+  0%,
+  100% {
+    transform: scaleY(0.35);
+  }
+  50% {
+    transform: scaleY(1);
+  }
+}
+.lv-ripple {
+  animation: lv-ripple 2.8s ease-out infinite;
+  animation-delay: calc(var(--i, 0) * 0.9s);
+}
+@keyframes lv-ripple {
+  from {
+    transform: scale(0.7);
+    opacity: 0.55;
+  }
+  to {
+    transform: scale(1.6);
+    opacity: 0;
+  }
+}
+.lv-spin {
+  animation: lv-spin 14s linear infinite;
+}
+@keyframes lv-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}
