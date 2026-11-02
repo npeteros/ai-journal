@@ -1,6 +1,5 @@
 'use client'
 
-import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useForm } from 'react-hook-form'
@@ -8,16 +7,14 @@ import { zodResolver } from '@hookform/resolvers/zod'
 
 import { signIn } from '@/src/lib/auth-client'
 import { loginSchema, type LoginValues } from '@/src/server/auth/schemas/login'
+import { Button } from '@/components/ui/button'
+import { Field, PasswordInput, authInputClass } from './fields'
 
 // Where to send the user after a successful sign in.
-const AFTER_LOGIN_URL = '/dashboard'
-
-const inputClass =
-  'h-14 w-full rounded-2xl border border-[#e8e3d9] bg-[#fdfbf7] px-4 text-[15px] text-[#1f1c17] placeholder:text-[#a39d92] outline-none transition-colors focus:border-[#1f1c17] disabled:opacity-60'
+const AFTER_LOGIN_URL = '/journal'
 
 export function LoginForm() {
   const router = useRouter()
-  const [showPassword, setShowPassword] = useState(false)
 
   const {
     register,
@@ -46,78 +43,64 @@ export function LoginForm() {
   }
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} noValidate className="mt-9 space-y-5">
-      {/* Email */}
-      <div className="space-y-2">
-        <label htmlFor="email" className="block text-sm font-medium text-[#5c564d]">
-          Email
-        </label>
+    <form onSubmit={handleSubmit(onSubmit)} noValidate className="flex flex-col">
+      <Field id="email" label="Email" error={errors.email?.message} className="mb-3">
         <input
           id="email"
           type="email"
           autoComplete="email"
           placeholder="you@example.com"
           aria-invalid={!!errors.email}
+          aria-describedby={errors.email ? 'email-error' : undefined}
           disabled={isSubmitting}
-          className={inputClass}
+          className={authInputClass}
           {...register('email')}
         />
-        {errors.email && <p className="text-sm text-red-700">{errors.email.message}</p>}
-      </div>
+      </Field>
 
-      {/* Password */}
-      <div className="space-y-2">
-        <div className="flex items-center justify-between">
-          <label htmlFor="password" className="text-sm font-medium text-[#5c564d]">
-            Password
-          </label>
+      <Field
+        id="password"
+        label="Password"
+        error={errors.password?.message}
+        aside={
           <Link
             href="/forgot-password"
-            className="text-sm font-medium text-[#2b3a4a] hover:underline"
+            className="text-[13px] font-semibold text-cloud-700 hover:underline"
           >
             Forgot password?
           </Link>
-        </div>
-        <div className="relative">
-          <input
-            id="password"
-            type={showPassword ? 'text' : 'password'}
-            autoComplete="current-password"
-            placeholder="••••••••"
-            aria-invalid={!!errors.password}
-            disabled={isSubmitting}
-            className={`${inputClass} pr-12`}
-            {...register('password')}
-          />
-          <button
-            type="button"
-            onClick={() => setShowPassword((v) => !v)}
-            aria-label={showPassword ? 'Hide password' : 'Show password'}
-            className="absolute inset-y-0 right-4 flex items-center text-[#8a847a] transition-colors hover:text-[#1f1c17]"
-          >
-            {showPassword ? 'Hide' : 'Show'}
-          </button>
-        </div>
-        {errors.password && <p className="text-sm text-red-700">{errors.password.message}</p>}
-      </div>
+        }
+      >
+        <PasswordInput
+          id="password"
+          autoComplete="current-password"
+          placeholder="••••••••"
+          aria-invalid={!!errors.password}
+          aria-describedby={errors.password ? 'password-error' : undefined}
+          disabled={isSubmitting}
+          {...register('password')}
+        />
+      </Field>
 
       {errors.root && (
-        <p role="alert" className="text-sm text-red-700">
+        <p role="alert" className="mt-4 text-[13px] text-destructive">
           {errors.root.message}
         </p>
       )}
 
-      <button
+      <Button
         type="submit"
+        variant="ink"
+        size="cta-lg"
         disabled={isSubmitting}
-        className="h-14 w-full rounded-2xl bg-[#1f1c17] text-[15px] font-medium text-[#fcf9f4] transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+        className="mt-[22px] w-full"
       >
         {isSubmitting ? 'Signing in…' : 'Sign in'}
-      </button>
+      </Button>
 
-      <p className="pt-1 text-center text-sm text-[#8a847a]">
+      <p className="mt-[18px] text-center text-[13px] font-medium text-neutral-400">
         New here?{' '}
-        <Link href="/register" className="font-medium text-[#2b3a4a] hover:underline">
+        <Link href="/register" className="font-semibold text-cloud-700 hover:underline">
           Create an account
         </Link>
       </p>
