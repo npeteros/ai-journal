@@ -2,7 +2,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { TRPCError } from '@trpc/server'
 import type { IMastraLogger } from '@mastra/core/logger'
-import { AiUsageService, type AiUsageEntry } from '../AiUsageService'
+import { AiUsageService, type AiUsageOutcome, type AiUsageReservation } from '../AiUsageService'
 
 // Keep the real Prisma client and Mastra observability out of unit tests.
 vi.mock('@/src/lib/prisma', () => ({ default: {} }))
@@ -10,9 +10,13 @@ vi.mock('../../observability', () => ({ logger: {} }))
 
 const NOW = new Date('2026-10-30T12:00:00.000Z')
 
-const entry: AiUsageEntry = {
+const reservation: AiUsageReservation = {
   userId: 'user-1',
   agent: 'weather-agent',
+  model: 'openai/gpt-5-mini',
+}
+
+const outcome: AiUsageOutcome = {
   model: 'openai/gpt-5-mini',
   inputTokens: 120,
   outputTokens: 45,
@@ -21,10 +25,17 @@ const entry: AiUsageEntry = {
 }
 
 function setup() {
-  const db = {
+  const tx = {
+    $executeRaw: vi.fn().mockResolvedValue(1),
     aiUsageLog: {
-      create: vi.fn().mockResolvedValue({}),
       count: vi.fn().mockResolvedValue(0),
+      create: vi.fn().mockResolvedValue({ id: 'usage-1' }),
+    },
+  }
+  const db = {
+    $transaction: vi.fn((fn: (client: typeof tx) => Promise<unknown>) => fn(tx)),
+    aiUsageLog: {
+      update: vi.fn().mockResolvedValue({}),
     },
   }
   const log = { error: vi.fn() }
@@ -32,7 +43,7 @@ function setup() {
     db as unknown as ConstructorParameters<typeof AiUsageService>[0],
     log as unknown as IMastraLogger,
   )
-  return { db, log, service }
+  return { db, tx, log, service }
 }
 
 describe('AiUsageService', () => {
@@ -46,69 +57,94 @@ describe('AiUsageService', () => {
     vi.unstubAllEnvs()
   })
 
-  describe('record', () => {
-    it('writes a row with the correct fields', async () => {
-      const { db, service } = setup()
+  describe('reserve', () => {
+    it('inserts a pending row and returns its ID when under the limit', async () => {
+      vi.stubEnv('AI_RATE_LIMIT_MAX_CALLS', '5')
+      const { tx, service } = setup()
+      tx.aiUsageLog.count.mockResolvedValue(4)
 
-      await service.record(entry)
-
-      expect(db.aiUsageLog.create).toHaveBeenCalledWith({ data: entry })
-    })
-
-    it('swallows and logs Prisma errors without rethrowing', async () => {
-      const { db, log, service } = setup()
-      const error = new Error('connection refused')
-      db.aiUsageLog.create.mockRejectedValue(error)
-
-      await expect(service.record(entry)).resolves.toBeUndefined()
-      expect(log.error).toHaveBeenCalledWith('Failed to record AI usage', {
-        error,
-        agent: entry.agent,
-        userId: entry.userId,
+      await expect(service.reserve(reservation)).resolves.toBe('usage-1')
+      expect(tx.aiUsageLog.create).toHaveBeenCalledWith({
+        data: {
+          ...reservation,
+          inputTokens: 0,
+          outputTokens: 0,
+          latencyMs: 0,
+          success: false,
+        },
+        select: { id: true },
       })
     })
-  })
 
-  describe('assertWithinLimit', () => {
-    it('allows calls under the limit', async () => {
-      vi.stubEnv('AI_RATE_LIMIT_MAX_CALLS', '5')
-      const { db, service } = setup()
-      db.aiUsageLog.count.mockResolvedValue(4)
+    it('takes the per-user lock before counting', async () => {
+      const { tx, service } = setup()
 
-      await expect(service.assertWithinLimit('user-1')).resolves.toBeUndefined()
+      await service.reserve(reservation)
+
+      expect(tx.$executeRaw).toHaveBeenCalledOnce()
+      expect(tx.$executeRaw.mock.calls[0]).toContain('user-1')
+      expect(tx.$executeRaw.mock.invocationCallOrder[0]).toBeLessThan(
+        tx.aiUsageLog.count.mock.invocationCallOrder[0],
+      )
     })
 
     it.each([5, 6])(
-      'throws TOO_MANY_REQUESTS when count is %i with a limit of 5',
+      'throws TOO_MANY_REQUESTS without inserting when count is %i with a limit of 5',
       async (count) => {
         vi.stubEnv('AI_RATE_LIMIT_MAX_CALLS', '5')
-        const { db, service } = setup()
-        db.aiUsageLog.count.mockResolvedValue(count)
+        const { tx, service } = setup()
+        tx.aiUsageLog.count.mockResolvedValue(count)
 
-        const result = service.assertWithinLimit('user-1')
+        const result = service.reserve(reservation)
 
         await expect(result).rejects.toBeInstanceOf(TRPCError)
         await expect(result).rejects.toMatchObject({ code: 'TOO_MANY_REQUESTS' })
+        expect(tx.aiUsageLog.create).not.toHaveBeenCalled()
       },
     )
 
     it('counts only rows inside the window', async () => {
       vi.stubEnv('AI_RATE_LIMIT_WINDOW_SECONDS', '600')
-      const { db, service } = setup()
+      const { tx, service } = setup()
 
-      await service.assertWithinLimit('user-1')
+      await service.reserve(reservation)
 
-      const { where } = db.aiUsageLog.count.mock.calls[0][0]
+      const { where } = tx.aiUsageLog.count.mock.calls[0][0]
       expect(where.createdAt).toEqual({ gte: new Date(NOW.getTime() - 600 * 1000) })
     })
 
     it('counts only rows for the specified user', async () => {
+      const { tx, service } = setup()
+
+      await service.reserve({ ...reservation, userId: 'user-42' })
+
+      const { where } = tx.aiUsageLog.count.mock.calls[0][0]
+      expect(where.userId).toBe('user-42')
+    })
+  })
+
+  describe('finalize', () => {
+    it('updates the reserved row with the outcome', async () => {
       const { db, service } = setup()
 
-      await service.assertWithinLimit('user-42')
+      await service.finalize('usage-1', outcome)
 
-      const { where } = db.aiUsageLog.count.mock.calls[0][0]
-      expect(where.userId).toBe('user-42')
+      expect(db.aiUsageLog.update).toHaveBeenCalledWith({
+        where: { id: 'usage-1' },
+        data: outcome,
+      })
+    })
+
+    it('swallows and logs Prisma errors without rethrowing', async () => {
+      const { db, log, service } = setup()
+      const error = new Error('connection refused')
+      db.aiUsageLog.update.mockRejectedValue(error)
+
+      await expect(service.finalize('usage-1', outcome)).resolves.toBeUndefined()
+      expect(log.error).toHaveBeenCalledWith('Failed to record AI usage', {
+        error,
+        usageId: 'usage-1',
+      })
     })
   })
 

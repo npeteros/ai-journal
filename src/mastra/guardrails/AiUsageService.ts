@@ -7,10 +7,14 @@ import { logger } from '../observability'
 const DEFAULT_WINDOW_SECONDS = 3600
 const DEFAULT_MAX_CALLS = 50
 
-export type AiUsageEntry = {
-  userId: string | null
+export type AiUsageReservation = {
+  userId: string
   agent: string
   model: string
+}
+
+export type AiUsageOutcome = {
+  model?: string
   inputTokens: number
   outputTokens: number
   latencyMs: number
@@ -22,8 +26,8 @@ export type AiRateLimitConfig = {
   maxCalls: number
 }
 
-type AiUsageDb = {
-  aiUsageLog: Pick<PrismaClient['aiUsageLog'], 'create' | 'count'>
+type AiUsageDb = Pick<PrismaClient, '$transaction'> & {
+  aiUsageLog: Pick<PrismaClient['aiUsageLog'], 'update'>
 }
 
 function readPositiveInt(value: string | undefined, fallback: number): number {
@@ -52,33 +56,55 @@ export class AiUsageService {
     }
   }
 
-  /** Writes one usage row. Never throws: a failed write must not fail the AI call. */
-  async record(entry: AiUsageEntry): Promise<void> {
-    try {
-      await this.db.aiUsageLog.create({ data: entry })
-    } catch (error) {
-      this.log.error('Failed to record AI usage', {
-        error,
-        agent: entry.agent,
-        userId: entry.userId,
-      })
-    }
-  }
-
-  /** Throws TOO_MANY_REQUESTS when the user has used up their calls for the current window. */
-  async assertWithinLimit(userId: string): Promise<void> {
+  /**
+   * Checks the rate limit and inserts the call's usage row before the model is called,
+   * so in-flight calls count toward the limit. Returns the row ID for `finalize()`.
+   * Throws TOO_MANY_REQUESTS when the user has used up their calls for the current window.
+   *
+   * The row starts as a failed call with no tokens, which is what remains if the call
+   * never finalizes (e.g. the process dies mid-stream).
+   */
+  async reserve({ userId, agent, model }: AiUsageReservation): Promise<string> {
     const { windowSeconds, maxCalls } = this.getConfig()
     const windowStart = new Date(Date.now() - windowSeconds * 1000)
 
-    const count = await this.db.aiUsageLog.count({
-      where: { userId, createdAt: { gte: windowStart } },
-    })
+    return this.db.$transaction(async (tx) => {
+      // Serialises reservations per user so concurrent requests can't all pass the count.
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${userId}))`
 
-    if (count >= maxCalls) {
-      throw new TRPCError({
-        code: 'TOO_MANY_REQUESTS',
-        message: `AI rate limit exceeded: ${maxCalls} calls per ${windowSeconds}s`,
+      const count = await tx.aiUsageLog.count({
+        where: { userId, createdAt: { gte: windowStart } },
       })
+
+      if (count >= maxCalls) {
+        throw new TRPCError({
+          code: 'TOO_MANY_REQUESTS',
+          message: `AI rate limit exceeded: ${maxCalls} calls per ${windowSeconds}s`,
+        })
+      }
+
+      const row = await tx.aiUsageLog.create({
+        data: {
+          userId,
+          agent,
+          model,
+          inputTokens: 0,
+          outputTokens: 0,
+          latencyMs: 0,
+          success: false,
+        },
+        select: { id: true },
+      })
+      return row.id
+    })
+  }
+
+  /** Updates a reserved row with the call's outcome. Never throws: a failed write must not fail the AI call. */
+  async finalize(id: string, outcome: AiUsageOutcome): Promise<void> {
+    try {
+      await this.db.aiUsageLog.update({ where: { id }, data: outcome })
+    } catch (error) {
+      this.log.error('Failed to record AI usage', { error, usageId: id })
     }
   }
 }

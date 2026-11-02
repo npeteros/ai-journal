@@ -22,8 +22,9 @@ export const logger = new PinoLogger({
 })
 
 /**
- * Strips span input/output (prompts, completions, tool args/results) before export,
- * unless AI_LOG_CONTENT=true. Model, token usage, timing and metadata are kept.
+ * Strips span input/output (prompts, completions, tool args/results) and the prompt and
+ * instructions attributes (agent runs, scorer steps) before export, unless AI_LOG_CONTENT=true.
+ * Model, token usage, timing and metadata are kept.
  */
 export class ContentRedactionProcessor implements SpanOutputProcessor {
   name = 'content-redaction'
@@ -32,6 +33,9 @@ export class ContentRedactionProcessor implements SpanOutputProcessor {
     if (!span || process.env.AI_LOG_CONTENT === 'true') return span
     span.input = undefined
     span.output = undefined
+    const { attributes } = span
+    if (attributes && 'prompt' in attributes) attributes.prompt = undefined
+    if (attributes && 'instructions' in attributes) attributes.instructions = undefined
     return span
   }
 

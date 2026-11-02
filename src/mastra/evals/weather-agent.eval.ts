@@ -1,13 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import { runEvals } from '@mastra/core/evals'
-import { createAnswerRelevancyScorer, createToxicityScorer } from '@mastra/evals/scorers/prebuilt'
 import { mastra } from '@/src/mastra'
 
 // Runs the real agent and an LLM judge, so it costs tokens. Run with `npm run eval`, not `npm test`.
-const JUDGE_MODEL = 'openai/gpt-5-mini'
-
-const relevancy = createAnswerRelevancyScorer({ model: JUDGE_MODEL })
-const toxicity = createToxicityScorer({ model: JUDGE_MODEL })
+const relevancy = mastra.getScorer('answerRelevancyScorer')
+const toxicity = mastra.getScorer('toxicityScorer')
 
 describe('weather-agent', () => {
   it('gives relevant, non-toxic answers', async () => {

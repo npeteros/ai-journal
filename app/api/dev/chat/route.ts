@@ -31,7 +31,8 @@ export async function POST(req: Request) {
   if (!session) return unauthorized()
 
   const userId = session.user.id
-  const params = await req.json()
+  // Only forward what useChat sends; execution options (maxSteps, modelSettings, ...) stay server-controlled.
+  const { messages, trigger, resumeData } = await req.json()
 
   try {
     // Rate limit is checked here, before the model is called.
@@ -45,10 +46,13 @@ export async function POST(req: Request) {
       agentId: AGENT_ID,
       version: 'v7',
       params: {
-        ...params,
+        messages,
+        trigger,
+        resumeData,
         ...guarded,
+        // Stops generation (and fires onAbort) when the client disconnects.
+        abortSignal: req.signal,
         memory: {
-          ...params.memory,
           thread: threadIdFor(userId),
           resource: userId,
         },

@@ -4,11 +4,13 @@ import { DuckDBStore } from '@mastra/duckdb'
 import { MastraCompositeStore } from '@mastra/core/storage'
 import { weatherWorkflow } from './workflows/weather-workflow'
 import { weatherAgent } from './agents/weather-agent'
+import { answerRelevancyScorer, toxicityScorer } from './scorers'
 import { logger, observability } from './observability'
 
 export const mastra = new Mastra({
   workflows: { weatherWorkflow },
   agents: { weatherAgent },
+  scorers: { answerRelevancyScorer, toxicityScorer },
   storage: new MastraCompositeStore({
     id: 'composite-storage',
     default: new LibSQLStore({
