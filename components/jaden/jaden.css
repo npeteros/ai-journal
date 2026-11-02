@@ -1,0 +1,208 @@
+/*
+ * Jaden mascot styles.
+ * Transforms and pivots are in SVG user units (viewBox 0 0 160 152), so keep these as classes
+ * rather than Tailwind utilities. Petting is driven by [data-petting], set from React.
+ */
+.mc{ position:relative; }
+.mc svg{ display:block; overflow:visible; }
+.mc svg *{ transform-box: view-box; }
+
+/* ---- Rig pivots ---- */
+.mc-pose, .mc-head{ transform-origin: 80px 114px; }
+.mc-breathe, .mc-stretch{ transform-origin: 80px 140px; }
+.mc-ear-l{ transform-origin: 56px 60px; } .mc-ear-r{ transform-origin: 104px 60px; }
+.mc-leaf{ transform-origin: 80px 46px; }
+.mc-sip-rest, .mc-sip-pose{ transform-origin: 50px 120px; }
+.mc-sip-pose{ opacity:0; }
+.mc-arm-r{ transform-origin: 109px 113px; }
+.mc-lid-l{ transform-origin: 62px 75px; } .mc-lid-r{ transform-origin: 98px 75px; }
+.m-yawn{ transform-origin: 80px 101px; }
+.mc-pose, .mc-ear-l, .mc-ear-r{ transition: transform .5s var(--ease-spring, ease); }
+
+/* ---- Always-on life (every instance) ---- */
+.mc-breathe{ animation: mc-breathe 3.8s ease-in-out infinite; }
+@keyframes mc-breathe{ 50%{ transform: scale(1.012, 1.028); } }
+.mc-leaf{ animation: mc-sway 3.4s ease-in-out infinite alternate; }
+@keyframes mc-sway{ from{ transform: rotate(-7deg); } to{ transform: rotate(9deg); } }
+.mc-lid{ transform: scaleY(0); animation: mc-blink 5.2s ease-in-out 1.4s infinite; }
+@keyframes mc-blink{ 0%,91%,100%{ transform: scaleY(0); } 94%,95.5%{ transform: scaleY(1); } }
+.mc-steam path{ opacity:0; animation: mc-steam 2.6s ease-out infinite; }
+.mc-steam path:nth-child(2){ animation-delay:.85s; } .mc-steam path:nth-child(3){ animation-delay:1.7s; }
+@keyframes mc-steam{ 0%{ opacity:0; transform: translateY(4px); } 30%{ opacity:.8; } 100%{ opacity:0; transform: translateY(-16px); } }
+.x-zzz text{ animation: mc-zzz 3s ease-in-out infinite; }
+.x-zzz text:nth-child(2){ animation-delay: 1s; } .x-zzz text:nth-child(3){ animation-delay: 2s; }
+@keyframes mc-zzz{ 0%{ opacity:0; transform: translate(0,4px); } 30%,60%{ opacity:1; } 100%{ opacity:0; transform: translate(6px,-10px); } }
+.x-dots circle{ animation: mc-dot 1.8s ease-in-out infinite; }
+.x-dots circle:nth-child(2){ animation-delay:.25s; } .x-dots circle:nth-child(3){ animation-delay:.5s; }
+@keyframes mc-dot{ 0%,100%{ opacity:.45; } 40%{ opacity:1; } }
+.x-sparkle path{ transform-origin: center; transform-box: fill-box; animation: mc-twinkle 2.2s ease-in-out infinite; }
+.x-sparkle path:nth-child(2){ animation-delay:.7s; } .x-sparkle path:nth-child(3){ animation-delay:1.4s; }
+@keyframes mc-twinkle{ 0%,100%{ transform: scale(.4) rotate(0); opacity:.4; } 50%{ transform: scale(1) rotate(45deg); opacity:1; } }
+
+/* ---- Moods: which face parts show, plus pose ---- */
+.mc .v{ opacity:0; transition: opacity .18s ease; }
+.mood-neutral .e-open, .mood-neutral .m-w{ opacity:1; }
+
+.mood-happy .e-happy, .mood-happy .m-smile{ opacity:1; }
+.mood-happy .mc-cheek{ opacity:.6; }
+.mood-happy .mc-pose{ transform: translateY(-1px) rotate(-3deg); }
+
+.mood-thinking .e-up, .mood-thinking .b-think, .mood-thinking .m-hmm, .mood-thinking .x-dots{ opacity:1; }
+.mood-thinking .mc-pose{ transform: rotate(-6deg); }
+
+.mood-sleepy .e-closed, .mood-sleepy .m-w, .mood-sleepy .x-zzz{ opacity:1; }
+.mood-sleepy .mc-cheek{ opacity:.45; }
+.mood-sleepy .mc-pose{ transform: translateY(3px) rotate(5deg); }
+.mood-sleepy .mc-ear-l{ transform: rotate(-28deg); } .mood-sleepy .mc-ear-r{ transform: rotate(28deg); }
+
+.mood-curious .e-wide, .mood-curious .m-o{ opacity:1; }
+.mood-curious .mc-pose{ transform: translateY(-2px) rotate(-8deg); }
+.mood-curious .mc-ear-l{ transform: rotate(12deg) translateY(-1px); } .mood-curious .mc-ear-r{ transform: rotate(-12deg) translateY(-1px); }
+
+.mood-proud .e-happy, .mood-proud .m-grin, .mood-proud .x-sparkle{ opacity:1; }
+.mood-proud .mc-cheek{ opacity:.6; }
+.mood-proud .mc-pose{ transform: translateY(-4px); }
+
+.mood-concerned .e-open, .mood-concerned .b-concern, .mood-concerned .m-flat{ opacity:1; }
+.mood-concerned .mc-pose{ transform: translateY(2px) rotate(3deg); }
+.mood-concerned .mc-ear-l{ transform: rotate(-14deg); } .mood-concerned .mc-ear-r{ transform: rotate(14deg); }
+
+/* ---- Pet (tap / click): Jaden hops, goes happy for ~1.6s, then settles back ----
+   React sets [data-petting] for PET_DURATION_MS (see use-jaden-pet.ts); holding gives a squish. */
+.mc-petable{ cursor:pointer; outline:none; -webkit-tap-highlight-color: transparent; -webkit-user-select:none; user-select:none; background:none; border:0; padding:0; }
+.mc-petable:focus-visible{ outline: 2px solid var(--cloud-500); outline-offset: 4px; border-radius: 18px; }
+.mc[data-petting] .mc-hop{ animation: mc-hop .6s var(--ease-spring, ease); }
+@keyframes mc-hop{ 40%{ transform: translateY(-10px); } }
+.mc-petable:active .mc-hop{ transform: translateY(2px) scale(1.03, .96); transition: transform .12s ease; }
+.mc[data-petting] .v{ animation: mc-pet-hide 1.6s ease both; }
+.mc[data-petting] .e-happy, .mc[data-petting] .m-smile{ animation: mc-pet-show 1.6s ease both; }
+.mc[data-petting] .mc-cheek{ animation: mc-pet-cheek 1.6s ease both; }
+@keyframes mc-pet-hide{ 0%,82%{ opacity:0; } }
+@keyframes mc-pet-show{ 0%,82%{ opacity:1; } 100%{ opacity:0; } }
+@keyframes mc-pet-cheek{ 0%,82%{ opacity:.6; } }
+
+/* ---- Gesture loops (any screen may use one) ---- */
+.g-wave .mc-arm-r{ animation: mc-wave 3.4s ease-in-out infinite; }
+.g-wave .mc-shadow-r{ animation: mc-shadow-away 3.4s ease-in-out infinite; }
+@keyframes mc-wave{
+  0%,100%{ transform: rotate(0); }
+  14%{ transform: rotate(-140deg); } 24%{ transform: rotate(-160deg); } 34%{ transform: rotate(-128deg); }
+  44%{ transform: rotate(-158deg); } 54%{ transform: rotate(-134deg); } 64%{ transform: rotate(-140deg); }
+  80%{ transform: rotate(0); }
+}
+@keyframes mc-shadow-away{ 0%,100%{ opacity:1; } 8%,82%{ opacity:0; } }
+
+.g-sip .mc-sip-rest{ animation: mc-sip-rest 4.4s ease-in-out infinite; }
+.g-sip .mc-sip-pose{ animation: mc-sip-pose-in 4.4s ease-in-out infinite; }
+.g-sip .e-open{ animation: mc-sip-eopen 4.4s linear infinite; }
+.g-sip .e-closed{ animation: mc-sip-eclosed 4.4s linear infinite; }
+.g-sip .mc-pose{ animation: mc-sip-pose 4.4s ease-in-out infinite; }
+/* Pose swap: rest slides up-right as it fades; the sipping pose settles in from below. */
+@keyframes mc-sip-rest{ 0%,18%{ opacity:1; transform: translate(0,0); } 27%,65%{ opacity:0; transform: translate(10px,-12px); } 74%,100%{ opacity:1; transform: translate(0,0); } }
+@keyframes mc-sip-pose-in{ 0%,18%{ opacity:0; transform: translate(-10px,12px) rotate(8deg); } 27%,65%{ opacity:1; transform: translate(0,0) rotate(0); } 74%,100%{ opacity:0; transform: translate(-10px,12px) rotate(8deg); } }
+@keyframes mc-sip-eopen{ 0%,29.9%{ opacity:1; } 30%,69.9%{ opacity:0; } 70%,100%{ opacity:1; } }
+@keyframes mc-sip-eclosed{ 0%,29.9%{ opacity:0; } 30%,69.9%{ opacity:1; } 70%,100%{ opacity:0; } }
+@keyframes mc-sip-pose{ 0%,20%{ transform: none; } 30%,62%{ transform: translate(1px,1px) rotate(-3deg); } 80%,100%{ transform: none; } }
+
+.g-nod .mc-pose{ animation: mc-nod 2.6s ease-in-out infinite; }
+@keyframes mc-nod{ 0%,100%{ transform: translate(0,0) rotate(0); } 20%{ transform: translate(-1px,4px) rotate(-3deg); } 40%{ transform: translate(0,0) rotate(0); } 60%{ transform: translate(-1px,4px) rotate(-3deg); } 80%{ transform: translate(0,0) rotate(0); } }
+
+.g-yawn .mc-pose{ animation: mc-yawn-pose 4.6s ease-in-out infinite; }
+.g-yawn .mc-stretch{ animation: mc-yawn-stretch 4.6s ease-in-out infinite; }
+.g-yawn .e-open{ animation: mc-yawn-eopen 4.6s linear infinite; }
+.g-yawn .e-closed{ animation: mc-yawn-eclosed 4.6s linear infinite; }
+.g-yawn .m-w{ animation: mc-yawn-eopen 4.6s linear infinite; }
+.g-yawn .m-yawn{ animation: mc-yawn-mouth 4.6s ease-in-out infinite; }
+@keyframes mc-yawn-pose{ 0%,15%{ transform: translate(0,0) rotate(0); } 30%,58%{ transform: translate(0,-3px) rotate(5deg); } 66%{ transform: translate(0,0) rotate(-3deg); } 72%{ transform: translate(0,0) rotate(2deg); } 78%,100%{ transform: translate(0,0) rotate(0); } }
+@keyframes mc-yawn-stretch{ 0%,18%{ transform: scale(1,1); } 32%,56%{ transform: scale(1.015,1.045); } 66%,100%{ transform: scale(1,1); } }
+@keyframes mc-yawn-eopen{ 0%,19.9%{ opacity:1; } 20%,63.9%{ opacity:0; } 64%,100%{ opacity:1; } }
+@keyframes mc-yawn-eclosed{ 0%,19.9%{ opacity:0; } 20%,63.9%{ opacity:1; } 64%,100%{ opacity:0; } }
+@keyframes mc-yawn-mouth{ 0%,19.9%{ opacity:0; transform: scale(1,.3); } 20%{ opacity:1; transform: scale(1,.3); } 32%,52%{ opacity:1; transform: scale(1,1); } 62%{ opacity:1; transform: scale(1,.3); } 63.9%,100%{ opacity:0; transform: scale(1,.3); } }
+
+.g-think .mc-pose{ animation: mc-think 4s ease-in-out infinite; }
+@keyframes mc-think{ 0%,100%{ transform: translate(0,0) rotate(-6deg); } 50%{ transform: translate(0,-1px) rotate(-2deg); } }
+
+/* ---- Entrances ----
+   .mc-arrive  peeks up from behind the edge (quiet screens)
+   .mc-intro   arrive + one wave + speech bubble (first impressions, milestones)
+   .mc-live    intro + the 20s acting loop below (one hero per app: Journal Home)            */
+.mc-arrive .mc-peek, .mc-intro .mc-peek, .mc-live .mc-peek{ animation: mc-peek 1s var(--ease-spring, ease) .9s backwards; }
+@keyframes mc-peek{ from{ transform: translateY(110px); } }
+.mc-arrive .mc-front, .mc-intro .mc-front, .mc-live .mc-front{ animation: mc-fade .5s ease 1.5s backwards; }
+@keyframes mc-fade{ from{ opacity:0; } }
+.mc-intro .mc-arm-r, .mc-live .mc-arm-r{ animation: mc-wave 3s ease-in-out 1.9s 1 backwards; }
+.mc-intro .mc-shadow-r, .mc-live .mc-shadow-r{ animation: mc-shadow-away 3s ease-in-out 1.9s 1 backwards; }
+
+/* No coffee where it would be odd (typing, recording). */
+.mc-nomug .mc-cup{ display:none; }
+
+/* ---- Live choreography (Journal Home): intro, then a 20s acting loop ----
+   Beats: 0–3% settle · 4–22% read the card + nod twice · 25–38% look up, smile, ear flick
+          40–60% sip coffee, eyes closed · 62–75% idle + slow blink · 77–88% yawn + stretch
+          88–93% little head shake · 95% blink                                                 */
+
+.mc-live .mc-pose{ animation: mcl-pose 20s ease-in-out 5s infinite; }
+.mc-live .mc-look{ animation: mcl-look 20s ease-in-out 5s infinite; }
+.mc-live .e-open{ animation: mcl-eopen 20s linear 5s infinite; }
+.mc-live .e-closed{ animation: mcl-eclosed 20s linear 5s infinite; }
+.mc-live .e-happy{ animation: mcl-ehappy 20s linear 5s infinite; }
+.mc-live .m-w{ animation: mcl-mw 20s linear 5s infinite; }
+.mc-live .m-smile{ animation: mcl-msmile 20s linear 5s infinite; }
+.mc-live .m-yawn{ animation: mcl-myawn 20s ease-in-out 5s infinite; }
+.mc-live .mc-cheek{ animation: mcl-cheek 20s ease-in-out 5s infinite; }
+.mc-live .mc-sip-rest{ animation: mcl-sip-rest 20s ease-in-out 5s infinite; }
+.mc-live .mc-sip-pose{ animation: mcl-sip-pose 20s ease-in-out 5s infinite; }
+.mc-live .mc-ear-r{ animation: mcl-ear 20s ease-in-out 5s infinite; }
+.mc-live .mc-stretch{ animation: mcl-stretch 20s ease-in-out 5s infinite; }
+.mc-live .mc-lid{ animation: none; }
+
+@keyframes mcl-pose{
+  0%,3%{ transform: translate(0,0) rotate(0); }
+  7%{ transform: translate(-2px,3px) rotate(-6deg); }   11%{ transform: translate(-2px,5.5px) rotate(-7deg); }
+  13%{ transform: translate(-2px,3px) rotate(-6deg); }  16%{ transform: translate(-2px,5.5px) rotate(-7deg); }
+  18%,21%{ transform: translate(-2px,3px) rotate(-6deg); }
+  25%{ transform: translate(0,0) rotate(0); }  30%{ transform: translate(0,-1px) rotate(3deg); }  35%,40%{ transform: translate(0,0) rotate(0); }
+  44%,56%{ transform: translate(1px,1px) rotate(-3deg); }  60%,75%{ transform: translate(0,0) rotate(0); }
+  79%,85%{ transform: translate(0,-3px) rotate(5deg); }
+  88%{ transform: translate(0,0) rotate(-3deg); }  90.5%{ transform: translate(0,0) rotate(2deg); }  93%,100%{ transform: translate(0,0) rotate(0); }
+}
+@keyframes mcl-look{ 0%,4%{ transform: translate(0,0); } 7%,21%{ transform: translate(-2.5px,2.5px); } 25%,100%{ transform: translate(0,0); } }
+@keyframes mcl-eopen{
+  0%,1.4%{ opacity:1; } 1.5%,2.5%{ opacity:0; } 2.6%,27.9%{ opacity:1; } 28%,37.9%{ opacity:0; } 38%,43.9%{ opacity:1; }
+  44%,61.9%{ opacity:0; } 62%,67.4%{ opacity:1; } 67.5%,68.4%{ opacity:0; } 68.5%,76.9%{ opacity:1; } 77%,87.9%{ opacity:0; }
+  88%,94.4%{ opacity:1; } 94.5%,95.4%{ opacity:0; } 95.5%,100%{ opacity:1; }
+}
+@keyframes mcl-eclosed{
+  0%,1.4%{ opacity:0; } 1.5%,2.5%{ opacity:1; } 2.6%,43.9%{ opacity:0; } 44%,61.9%{ opacity:1; } 62%,67.4%{ opacity:0; }
+  67.5%,68.4%{ opacity:1; } 68.5%,76.9%{ opacity:0; } 77%,87.9%{ opacity:1; } 88%,94.4%{ opacity:0; } 94.5%,95.4%{ opacity:1; } 95.5%,100%{ opacity:0; }
+}
+@keyframes mcl-ehappy{ 0%,27.9%{ opacity:0; } 28%,37.9%{ opacity:1; } 38%,100%{ opacity:0; } }
+@keyframes mcl-mw{ 0%,27.9%{ opacity:1; } 28%,37.9%{ opacity:0; } 38%,55.9%{ opacity:1; } 56%,61.9%{ opacity:0; } 62%,77.9%{ opacity:1; } 78%,85.9%{ opacity:0; } 86%,100%{ opacity:1; } }
+@keyframes mcl-msmile{ 0%,27.9%{ opacity:0; } 28%,37.9%{ opacity:1; } 38%,55.9%{ opacity:0; } 56%,61.9%{ opacity:1; } 62%,100%{ opacity:0; } }
+@keyframes mcl-myawn{
+  0%,77.9%{ opacity:0; transform: scale(1,.3); } 78%{ opacity:1; transform: scale(1,.3); } 81%,84%{ opacity:1; transform: scale(1,1); }
+  85.9%{ opacity:1; transform: scale(1,.3); } 86%,100%{ opacity:0; transform: scale(1,.3); }
+}
+@keyframes mcl-cheek{ 0%,26%{ opacity:.3; } 30%,36%{ opacity:.6; } 40%,55%{ opacity:.3; } 58%,61%{ opacity:.55; } 64%,100%{ opacity:.3; } }
+@keyframes mcl-sip-rest{ 0%,40%{ opacity:1; transform: translate(0,0); } 44%,57%{ opacity:0; transform: translate(10px,-12px); } 61%,100%{ opacity:1; transform: translate(0,0); } }
+@keyframes mcl-sip-pose{ 0%,40%{ opacity:0; transform: translate(-10px,12px) rotate(8deg); } 44%,57%{ opacity:1; transform: translate(0,0) rotate(0); } 61%,100%{ opacity:0; transform: translate(-10px,12px) rotate(8deg); } }
+@keyframes mcl-ear{ 0%,29%{ transform: rotate(0); } 30%{ transform: rotate(-22deg); } 31%{ transform: rotate(0); } 32%{ transform: rotate(-12deg); } 33%,89%{ transform: rotate(0); } 90%{ transform: rotate(-22deg); } 91%,100%{ transform: rotate(0); } }
+@keyframes mcl-stretch{ 0%,77%{ transform: scale(1,1); } 81%,84%{ transform: scale(1.015,1.045); } 88%,100%{ transform: scale(1,1); } }
+
+/* Speech bubble: short, warm, never more than four words */
+.mc-say{ position:absolute; padding:6px 10px; border-radius:12px 12px 12px 3px; background:var(--surface); box-shadow:var(--shadow-md); font:700 12px/1 var(--font-sans); color:var(--amber-700); white-space:nowrap; transform-origin:0 100%; }
+.mc-live-say{ opacity:0; animation: mc-say 3s var(--ease-spring, ease) 1.9s 1 both; }
+@keyframes mc-say{ 0%{ opacity:0; transform: scale(.6) translateY(6px); } 10%,82%{ opacity:1; transform: scale(1) translateY(0); } 100%{ opacity:0; transform: scale(.85) translateY(4px); } }
+.mc-say-persist{ opacity:1; animation: mc-say-in .5s var(--ease-spring, ease) both; }
+@keyframes mc-say-in{ from{ opacity:0; transform: scale(.6) translateY(6px); } }
+
+/* ---- Still: animated={false} or reduced motion — hold the current mood pose ---- */
+.mc-still *, .mc-still *::before, .mc-still *::after{ animation: none !important; }
+.mc-still .mc-lid{ transform: scaleY(0); }
+.mc-still .mc-say{ opacity:1; }
+@media (prefers-reduced-motion: reduce){
+  .mc *, .mc *::before, .mc *::after, .mc-say{ animation: none !important; transition: none !important; }
+  .mc .mc-lid{ transform: scaleY(0); }
+  .mc-say{ opacity:1; }
+}
+
