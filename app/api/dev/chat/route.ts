@@ -1,11 +1,10 @@
 import { handleChatStream } from '@mastra/ai-sdk'
 import { toAISdkMessages } from '@mastra/ai-sdk/ui'
-import { TRPCError } from '@trpc/server'
-import { getHTTPStatusCodeFromError } from '@trpc/server/http'
 import { createUIMessageStreamResponse } from 'ai'
 import { NextResponse } from 'next/server'
 import { mastra } from '@/src/mastra'
-import { guardAgentCall } from '@/src/mastra/guardrails/runAgent'
+import { peekRateLimit } from '@/src/mastra/guardrails/chatStream'
+import { createUserRequestContext } from '@/src/mastra/guardrails/requestContext'
 import { auth } from '@/src/server/auth/auth'
 
 // Dev-only demo endpoint for the S1-05 AI layer. Disabled in production builds;
@@ -34,40 +33,31 @@ export async function POST(req: Request) {
   // Only forward what useChat sends; execution options (maxSteps, modelSettings, ...) stay server-controlled.
   const { messages, trigger, resumeData } = await req.json()
 
-  try {
-    // Rate limit is checked here, before the model is called.
-    const guarded = await guardAgentCall({
-      agent: mastra.getAgentById(AGENT_ID),
-      userId,
-    })
-
-    const stream = await handleChatStream({
-      mastra,
-      agentId: AGENT_ID,
-      version: 'v7',
-      params: {
-        messages,
-        trigger,
-        resumeData,
-        ...guarded,
-        // Stops generation (and fires onAbort) when the client disconnects.
-        abortSignal: req.signal,
-        memory: {
-          thread: threadIdFor(userId),
-          resource: userId,
-        },
+  // AiUsageProcessor on the agent enforces the rate limit and records usage from this context.
+  const stream = await handleChatStream({
+    mastra,
+    agentId: AGENT_ID,
+    version: 'v7',
+    params: {
+      messages,
+      trigger,
+      resumeData,
+      requestContext: createUserRequestContext(userId),
+      // Stops generation when the client disconnects; the usage row is recorded as failed.
+      abortSignal: req.signal,
+      memory: {
+        thread: threadIdFor(userId),
+        resource: userId,
       },
-    })
-    return createUIMessageStreamResponse({ stream })
-  } catch (error) {
-    if (error instanceof TRPCError) {
-      return NextResponse.json(
-        { error: error.message },
-        { status: getHTTPStatusCodeFromError(error) },
-      )
-    }
-    throw error
+    },
+  })
+
+  // Over-limit calls arrive as a tripwire chunk in the stream; answer 429 instead.
+  const peeked = await peekRateLimit(stream)
+  if (peeked.limited) {
+    return NextResponse.json({ error: peeked.reason }, { status: 429 })
   }
+  return createUIMessageStreamResponse({ stream: peeked.stream })
 }
 
 export async function GET(req: Request) {

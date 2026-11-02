@@ -1,6 +1,7 @@
-import { Agent } from '@mastra/core/agent';
-import { Memory } from '@mastra/memory';
-import { weatherTool } from '../tools/weather-tool';
+import { Agent } from '@mastra/core/agent'
+import { Memory } from '@mastra/memory'
+import { weatherTool } from '../tools/weather-tool'
+import { aiUsageProcessor } from '../guardrails/AiUsageProcessor'
 
 export const weatherAgent = new Agent({
   id: 'weather-agent',
@@ -20,4 +21,7 @@ Use the weatherTool to fetch current weather data.`,
   model: 'openai/gpt-5-mini',
   tools: { weatherTool },
   memory: new Memory(),
-});
+  // Rate limit + AiUsageLog row for every call, however the agent is invoked.
+  inputProcessors: [aiUsageProcessor],
+  outputProcessors: [aiUsageProcessor],
+})
