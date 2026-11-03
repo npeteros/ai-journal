@@ -9,8 +9,11 @@ import { appRouter } from './routers/_app'
 
 export const getQueryClient = cache(makeQueryClient)
 
+// One context (and one session lookup) per request, shared by every RSC call.
+const createContext = cache(async () => createTRPCContext({ headers: await headers() }))
+
 export const trpc = createTRPCOptionsProxy({
-  ctx: async () => createTRPCContext({ headers: await headers() }),
+  ctx: createContext,
   router: appRouter,
   queryClient: getQueryClient,
 })
