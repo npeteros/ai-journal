@@ -5,6 +5,9 @@ export const BODY_MAX_LENGTH = 50_000
 export const TAG_NAME_MAX_LENGTH = 32
 export const TAGS_MAX_COUNT = 20
 
+// Title is optional in input, but `entry.title` is NOT NULL. When it's empty
+// (`undefined` on create, `null` on update), the entry procedures must set an
+// AI-generated title before writing.
 const baseTitleSchema = z.string().trim().max(TITLE_MAX_LENGTH)
 
 const createTitleSchema = baseTitleSchema.transform((value) => (value === '' ? undefined : value))

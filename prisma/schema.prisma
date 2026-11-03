@@ -23,6 +23,8 @@ model User {
   sessions      Session[]
   accounts      Account[]
   aiUsageLogs   AiUsageLog[]
+  entries       Entry[]
+  tags          Tag[]
 
   @@unique([email])
   @@map("user")
@@ -76,10 +78,9 @@ model Verification {
   @@map("verification")
 }
 
-// One row per AI agent/workflow call; backs per-user rate limiting and usage reporting.
 model AiUsageLog {
   id           String   @id @default(uuid()) @db.Uuid
-  userId       String? // Matches better-auth User.id; null for system calls
+  userId       String?
   user         User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
   agent        String
   model        String
@@ -91,4 +92,49 @@ model AiUsageLog {
 
   @@index([userId, createdAt])
   @@map("ai_usage_log")
+}
+
+model Entry {
+  id        String     @id @default(uuid()) @db.Uuid
+  userId    String
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title     String
+  body      String
+  writtenAt DateTime   @default(now()) @db.Timestamptz
+  entryDate DateTime   @db.Date
+  createdAt DateTime   @default(now()) @db.Timestamptz
+  updatedAt DateTime   @updatedAt @db.Timestamptz
+  deletedAt DateTime?  @db.Timestamptz
+  tags      EntryTag[]
+
+  @@index([userId, writtenAt])
+  @@index([userId, entryDate])
+  @@map("entry")
+}
+
+model Tag {
+  id             String     @id @default(uuid()) @db.Uuid
+  userId         String
+  user           User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name           String
+  normalizedName String
+  createdAt      DateTime   @default(now()) @db.Timestamptz
+  updatedAt      DateTime   @updatedAt @db.Timestamptz
+  deletedAt      DateTime?  @db.Timestamptz
+  entries        EntryTag[]
+
+  @@unique([userId, normalizedName])
+  @@map("tag")
+}
+
+model EntryTag {
+  entryId   String   @db.Uuid
+  entry     Entry    @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  tagId     String   @db.Uuid
+  tag       Tag      @relation(fields: [tagId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now()) @db.Timestamptz
+
+  @@id([entryId, tagId])
+  @@index([tagId])
+  @@map("entry_tag")
 }
