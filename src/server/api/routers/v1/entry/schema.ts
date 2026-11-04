@@ -74,6 +74,10 @@ export const EntryUpdateSchema = entryUpdateFields
     path: ['timeZone'],
   })
 
+export const EntryDeleteSchema = z.object({
+  id: z.uuid(),
+})
+
 export type EntryCreateInput = z.input<typeof EntryCreateSchema>
 export type EntryCreateData = z.output<typeof EntryCreateSchema>
 export type EntryUpdateInput = z.input<typeof EntryUpdateSchema>

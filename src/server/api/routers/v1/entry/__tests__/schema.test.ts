@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   BODY_MAX_LENGTH,
   EntryCreateSchema,
+  EntryDeleteSchema,
   EntryUpdateSchema,
   TAGS_MAX_COUNT,
   TITLE_MAX_LENGTH,
@@ -89,5 +90,14 @@ describe('EntryUpdateSchema', () => {
     const writtenAt = '2026-08-24T23:00:00Z'
     expect(EntryUpdateSchema.safeParse({ writtenAt }).success).toBe(false)
     expect(EntryUpdateSchema.safeParse({ writtenAt, timeZone }).success).toBe(true)
+  })
+})
+
+describe('EntryDeleteSchema', () => {
+  it('accepts UUIDs and rejects invalid entry IDs', () => {
+    expect(
+      EntryDeleteSchema.safeParse({ id: '123e4567-e89b-12d3-a456-426614174000' }).success,
+    ).toBe(true)
+    expect(EntryDeleteSchema.safeParse({ id: 'entry-1' }).success).toBe(false)
   })
 })
