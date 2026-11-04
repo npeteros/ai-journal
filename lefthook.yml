@@ -1,0 +1,23 @@
+# lefthook.yml
+
+pre-push:
+  commands:
+    validate-branch-name:
+      run: node scripts/validate-branch-name/index.js
+
+commit-msg:
+  commands:
+    validate-commit-message:
+      run: node scripts/validate-commit-msg/index.js {1}
+
+pre-commit:
+  piped: true
+  jobs:
+    - name: Lint staged files
+      run: npx oxlint --fix {staged_files}
+      glob: '*.{js,jsx,ts,tsx}'
+      stage_fixed: true
+    - name: Format staged files
+      run: npx prettier --write {staged_files}
+      glob: '*.{js,jsx,ts,tsx,md}'
+      stage_fixed: true

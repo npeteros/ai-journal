@@ -1,0 +1,41 @@
+name: Unit Tests
+
+on:
+  pull_request:
+  push:
+    branches: [develop]
+
+jobs:
+  build-and-test:
+    name: Run Unit Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # `vitest --changed` diffs against the merge base, which a shallow clone doesn't have.
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      # On PRs: only run tests affected by files changed vs the target branch (fast feedback).
+      - name: Run Unit Tests (changed only)
+        if: github.event_name == 'pull_request'
+        run: |
+          git fetch origin ${{ github.base_ref }}
+          npx vitest run --changed origin/${{ github.base_ref }} --passWithNoTests
+
+      # On merge to develop: run the full suite as the real gate (no module-graph blind spots).
+      - name: Run Unit Tests (full suite)
+        if: github.event_name == 'push'
+        run: npx vitest run --passWithNoTests
