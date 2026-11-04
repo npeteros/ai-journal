@@ -74,11 +74,39 @@ export const EntryUpdateSchema = entryUpdateFields
     path: ['timeZone'],
   })
 
-export const EntryDeleteSchema = z.object({
+export const EntryIdSchema = z.object({
   id: z.uuid(),
 })
+
+export const EntryDeleteSchema = EntryIdSchema
+
+export const PAGE_SIZE_DEFAULT = 20
+export const PAGE_SIZE_MAX = 100
+export const SEARCH_TEXT_MAX_LENGTH = 200
+
+export const EntryFindManySchema = z
+  .object({
+    skip: z.number().int().min(0).default(0),
+    take: z.number().int().min(1).max(PAGE_SIZE_MAX).default(PAGE_SIZE_DEFAULT),
+    searchText: z
+      .string()
+      .trim()
+      .max(SEARCH_TEXT_MAX_LENGTH)
+      .transform((value) => (value === '' ? undefined : value))
+      .optional(),
+    tagId: z.uuid().optional(),
+    entryStartDate: z.iso.date().optional(),
+    entryEndDate: z.iso.date().optional(),
+  })
+  .refine(
+    ({ entryStartDate, entryEndDate }) =>
+      entryStartDate === undefined || entryEndDate === undefined || entryStartDate <= entryEndDate,
+    { message: 'entryStartDate must be on or before entryEndDate', path: ['entryEndDate'] },
+  )
 
 export type EntryCreateInput = z.input<typeof EntryCreateSchema>
 export type EntryCreateData = z.output<typeof EntryCreateSchema>
 export type EntryUpdateInput = z.input<typeof EntryUpdateSchema>
 export type EntryUpdateData = z.output<typeof EntryUpdateSchema>
+export type EntryFindManyInput = z.input<typeof EntryFindManySchema>
+export type EntryFindManyData = z.output<typeof EntryFindManySchema>
