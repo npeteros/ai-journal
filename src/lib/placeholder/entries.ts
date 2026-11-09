@@ -74,8 +74,6 @@ export const placeholderEntries: PlaceholderEntry[] = [
   },
 ]
 
-export const entryFilters = ['All', 'Gratitude', 'Work', 'Family'] as const
-
 /** "Today" for the placeholder world, so relative dates read naturally. */
 /** Timezone-less on purpose: parses to the same wall-clock time on server and client. */
 export const PLACEHOLDER_NOW_ISO = '2026-08-25T08:14:00'

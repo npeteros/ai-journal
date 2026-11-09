@@ -4,11 +4,22 @@ import { cn } from 'cn'
 
 import { Card } from '@/components/ui/card'
 import { Chip } from '@/components/ui/chip'
+import type { Mood } from '@/src/lib/design-tokens/colors'
 import { formatEntryDate } from '@/src/lib/format'
-import type { PlaceholderEntry } from '@/src/lib/placeholder/entries'
 
 type EntryCardProps = {
-  entry: Pick<PlaceholderEntry, 'id' | 'title' | 'body' | 'writtenAt' | 'tags' | 'mood'>
+  entry: {
+    id: string
+    title: string
+    body: string
+    /** ISO timestamp */
+    writtenAt: string
+    tags: string[]
+    /** Not part of the entry API yet; the spine is hidden when omitted. */
+    mood?: Mood
+  }
+  /** Reference date for "Today"; defaults to the placeholder date, so real entries pass `new Date()`. */
+  now?: Date
   /** Link to the editor; omit for decorative previews (onboarding). */
   href?: string
   className?: string
@@ -19,7 +30,7 @@ type EntryCardProps = {
 }
 
 /** Entry card: date overline, serif title, 2–3 line excerpt, tags, coloured mood spine. */
-export function EntryCard({ entry, href, className, spine = true, children }: EntryCardProps) {
+export function EntryCard({ entry, href, now, className, spine = true, children }: EntryCardProps) {
   const body = (
     <Card
       mood={spine ? entry.mood : undefined}
@@ -27,8 +38,11 @@ export function EntryCard({ entry, href, className, spine = true, children }: En
       className={cn('flex h-full flex-col gap-2 p-5', className)}
     >
       {children}
-      <p className="text-[11px] leading-none font-semibold tracking-[0.05em] text-neutral-400 uppercase">
-        {formatEntryDate(entry.writtenAt)}
+      <p
+        suppressHydrationWarning
+        className="text-[11px] leading-none font-semibold tracking-[0.05em] text-neutral-400 uppercase"
+      >
+        {formatEntryDate(entry.writtenAt, now)}
       </p>
       <h3 className="font-serif text-[18px] leading-[1.3] font-semibold text-neutral-900 lg:text-[19px]">
         {entry.title}
