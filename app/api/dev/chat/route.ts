@@ -7,11 +7,10 @@ import { peekRateLimit } from '@/src/mastra/guardrails/chatStream'
 import { createUserRequestContext } from '@/src/mastra/guardrails/requestContext'
 import { auth } from '@/src/server/auth/auth'
 
-// Dev-only demo endpoint for the S1-05 AI layer. Disabled in production builds;
-// the Mastra agent and API keys stay server-side.
+// Dev-only chat endpoint. Disabled in production builds; the Mastra agent and API keys stay server-side.
 const isDisabled = process.env.NODE_ENV === 'production'
 
-const AGENT_ID = 'weather-agent'
+const AGENT_ID = 'journal-companion-agent'
 // One demo thread per user; Mastra threads are owned by a single resource.
 const threadIdFor = (userId: string) => `dev-chat-${userId}`
 
