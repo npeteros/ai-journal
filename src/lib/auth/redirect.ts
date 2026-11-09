@@ -4,6 +4,10 @@ export const DEFAULT_AFTER_LOGIN = '/journal'
 // The proxy lets /login through when it's present, which avoids a /login <-> /journal loop.
 export const STALE_SESSION_PARAM = 'stale'
 
+// Request header the proxy sets on protected routes so the (app) layout knows the current
+// path (layouts don't receive it). Always overwritten by the proxy, so clients can't spoof it.
+export const PATHNAME_HEADER = 'x-pathname'
+
 const AUTH_PAGES = ['/login', '/register']
 
 const hasControlChars = (value: string) =>
