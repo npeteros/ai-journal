@@ -21,5 +21,11 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
     redirect(`/login?${params}`)
   }
 
-  return <AppShell streakDays={placeholderUser.streakDays}>{children}</AppShell>
+  const user = { name: session.user.name, email: session.user.email }
+
+  return (
+    <AppShell streakDays={placeholderUser.streakDays} user={user}>
+      {children}
+    </AppShell>
+  )
 }

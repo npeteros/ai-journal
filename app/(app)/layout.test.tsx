@@ -29,11 +29,14 @@ describe('(app) layout', () => {
     mocks.headers.mockResolvedValue(new Headers())
   })
 
-  it('renders children when the session is valid', async () => {
-    mocks.getSession.mockResolvedValue({ user: { id: 'user-1' } })
+  it('renders children with the session user when the session is valid', async () => {
+    mocks.getSession.mockResolvedValue({
+      user: { id: 'user-1', name: 'Maya Chen', email: 'maya@example.com' },
+    })
     const result = await AppLayout({ children: 'page' })
     expect(mocks.redirect).not.toHaveBeenCalled()
     expect(result.props.children).toBe('page')
+    expect(result.props.user).toEqual({ name: 'Maya Chen', email: 'maya@example.com' })
   })
 
   it('passes the request headers to getSession', async () => {
