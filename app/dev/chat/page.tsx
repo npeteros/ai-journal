@@ -1,24 +1,18 @@
-"use client";
+'use client'
 
-import { useEffect, useRef, useState } from "react";
-import { useChat } from "@ai-sdk/react";
-import {
-  DefaultChatTransport,
-  getToolName,
-  isTextUIPart,
-  isToolUIPart,
-  type UIMessage,
-} from "ai";
-import { ArrowUpIcon, LoaderCircleIcon, WrenchIcon } from "lucide-react";
+import { useEffect, useRef, useState } from 'react'
+import { useChat } from '@ai-sdk/react'
+import { DefaultChatTransport, getToolName, isTextUIPart, isToolUIPart, type UIMessage } from 'ai'
+import { ArrowUpIcon, LoaderCircleIcon, WrenchIcon } from 'lucide-react'
 
-import { Bubble, BubbleContent } from "@/components/ui/bubble";
+import { Bubble, BubbleContent } from '@/components/ui/bubble'
 import {
   InputGroup,
   InputGroupAddon,
   InputGroupButton,
   InputGroupTextarea,
-} from "@/components/ui/input-group";
-import { Message, MessageContent } from "@/components/ui/message";
+} from '@/components/ui/input-group'
+import { Message, MessageContent } from '@/components/ui/message'
 import {
   MessageScroller,
   MessageScrollerButton,
@@ -26,7 +20,7 @@ import {
   MessageScrollerItem,
   MessageScrollerProvider,
   MessageScrollerViewport,
-} from "@/components/ui/message-scroller";
+} from '@/components/ui/message-scroller'
 import {
   Trace,
   TraceCollapsible,
@@ -35,61 +29,58 @@ import {
   TraceIcon,
   TraceLine,
   TraceTitle,
-} from "@/components/ui/trace";
+} from '@/components/ui/trace'
 
 type ToolPart = Extract<
-  UIMessage["parts"][number],
-  { type: `tool-${string}` } | { type: "dynamic-tool" }
->;
+  UIMessage['parts'][number],
+  { type: `tool-${string}` } | { type: 'dynamic-tool' }
+>
 
-const API = "/api/dev/chat";
+const API = '/api/dev/chat'
 
 function getText(message: UIMessage) {
-  return message.parts.filter(isTextUIPart).map((part) => part.text).join("");
+  return message.parts
+    .filter(isTextUIPart)
+    .map((part) => part.text)
+    .join('')
 }
 
 // Dev-only demo of the AI layer (Mastra agent -> AI SDK UI). Not a product feature.
 export default function DevChatPage() {
-  const [input, setInput] = useState("");
-  const formRef = useRef<HTMLFormElement>(null);
+  const [input, setInput] = useState('')
+  const formRef = useRef<HTMLFormElement>(null)
   const { messages, setMessages, sendMessage, status } = useChat({
     transport: new DefaultChatTransport({ api: API }),
-  });
+  })
 
   useEffect(() => {
     fetch(API)
       .then((res) => res.json())
       .then((history: UIMessage[]) => setMessages(history))
-      .catch(() => {});
-  }, [setMessages]);
+      .catch(() => {})
+  }, [setMessages])
 
-  const busy = status === "submitted" || status === "streaming";
-  const canSend = input.trim().length > 0 && !busy;
+  const busy = status === 'submitted' || status === 'streaming'
+  const canSend = input.trim().length > 0 && !busy
 
   function onSubmit(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (!canSend) return;
-    void sendMessage({ text: input.trim() });
-    setInput("");
+    event.preventDefault()
+    if (!canSend) return
+    void sendMessage({ text: input.trim() })
+    setInput('')
   }
 
   return (
     <MessageScrollerProvider autoScroll>
       <div className="mx-auto flex h-screen w-full max-w-3xl flex-col gap-4 p-6">
-        <h1 className="text-sm font-medium text-muted-foreground">
-          Dev chat · weather-agent
-        </h1>
+        <h1 className="text-sm font-medium text-muted-foreground">Dev chat · Jaden</h1>
         <MessageScroller className="min-h-0 flex-1">
           <MessageScrollerViewport>
             <MessageScrollerContent aria-busy={busy} className="gap-6">
               {messages.map((message) => {
-                if (message.role === "user") {
+                if (message.role === 'user') {
                   return (
-                    <MessageScrollerItem
-                      key={message.id}
-                      messageId={message.id}
-                      scrollAnchor
-                    >
+                    <MessageScrollerItem key={message.id} messageId={message.id} scrollAnchor>
                       <Message align="end">
                         <MessageContent>
                           <Bubble align="end" variant="muted">
@@ -98,11 +89,11 @@ export default function DevChatPage() {
                         </MessageContent>
                       </Message>
                     </MessageScrollerItem>
-                  );
+                  )
                 }
 
-                const tools = message.parts.filter(isToolUIPart);
-                const reply = getText(message);
+                const tools = message.parts.filter(isToolUIPart)
+                const reply = getText(message)
 
                 return (
                   <MessageScrollerItem key={message.id} messageId={message.id}>
@@ -115,15 +106,11 @@ export default function DevChatPage() {
                             ))}
                           </Trace>
                         )}
-                        {reply && (
-                          <p className="whitespace-pre-wrap leading-relaxed">
-                            {reply}
-                          </p>
-                        )}
+                        {reply && <p className="whitespace-pre-wrap leading-relaxed">{reply}</p>}
                       </MessageContent>
                     </Message>
                   </MessageScrollerItem>
-                );
+                )
               })}
             </MessageScrollerContent>
           </MessageScrollerViewport>
@@ -139,9 +126,9 @@ export default function DevChatPage() {
               aria-label="Message"
               className="min-h-14"
               onKeyDown={(event) => {
-                if (event.key === "Enter" && !event.shiftKey) {
-                  event.preventDefault();
-                  formRef.current?.requestSubmit();
+                if (event.key === 'Enter' && !event.shiftKey) {
+                  event.preventDefault()
+                  formRef.current?.requestSubmit()
                 }
               }}
             />
@@ -153,11 +140,7 @@ export default function DevChatPage() {
                 disabled={!canSend}
                 className="ml-auto"
               >
-                {busy ? (
-                  <LoaderCircleIcon className="animate-spin" />
-                ) : (
-                  <ArrowUpIcon />
-                )}
+                {busy ? <LoaderCircleIcon className="animate-spin" /> : <ArrowUpIcon />}
                 <span className="sr-only">Send</span>
               </InputGroupButton>
             </InputGroupAddon>
@@ -165,13 +148,13 @@ export default function DevChatPage() {
         </form>
       </div>
     </MessageScrollerProvider>
-  );
+  )
 }
 
 function ToolRow({ part }: { part: ToolPart }) {
-  const name = getToolName(part);
-  const done = part.state === "output-available";
-  const failed = part.state === "output-error";
+  const name = getToolName(part)
+  const done = part.state === 'output-available'
+  const failed = part.state === 'output-error'
 
   if (!done && !failed) {
     return (
@@ -181,18 +164,18 @@ function ToolRow({ part }: { part: ToolPart }) {
         </TraceIcon>
         <TraceTitle>Calling {name}</TraceTitle>
       </TraceLine>
-    );
+    )
   }
 
   return (
     <TraceCollapsible>
       <TraceCollapsibleTrigger>
-        <TraceLine status={failed ? "error" : undefined}>
+        <TraceLine status={failed ? 'error' : undefined}>
           <TraceIcon>
             <WrenchIcon />
           </TraceIcon>
           <TraceTitle>
-            {failed ? "Failed" : "Called"} {name}
+            {failed ? 'Failed' : 'Called'} {name}
           </TraceTitle>
         </TraceLine>
       </TraceCollapsibleTrigger>
@@ -204,5 +187,5 @@ function ToolRow({ part }: { part: ToolPart }) {
         </pre>
       </TraceCollapsibleContent>
     </TraceCollapsible>
-  );
+  )
 }

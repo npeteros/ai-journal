@@ -44,7 +44,7 @@ function setup() {
   }
   const processor = new AiUsageProcessor(service as unknown as AiUsageService)
   const agent = {
-    id: 'weather-agent',
+    id: 'journal-companion-agent',
     getModel: vi.fn().mockResolvedValue({ provider: 'openai', modelId: 'gpt-5-mini' }),
   }
   const abort = vi.fn((reason?: string, options?: unknown) => {
@@ -120,7 +120,7 @@ describe('AiUsageProcessor', () => {
 
       expect(service.reserve).toHaveBeenCalledWith({
         userId: 'user-1',
-        agent: 'weather-agent',
+        agent: 'journal-companion-agent',
         model: 'openai/gpt-5-mini',
       })
     })
