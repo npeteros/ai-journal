@@ -13,9 +13,8 @@ vi.mock('@mastra/core/mastra', () => ({
 vi.mock('@mastra/libsql', () => ({ LibSQLStore: class {} }))
 vi.mock('@mastra/duckdb', () => ({
   DuckDBStore: class {
-    async getStore() {
-      return {}
-    }
+    observability = { init: async () => {} }
+    async close() {}
   },
 }))
 vi.mock('@mastra/core/storage', () => ({ MastraCompositeStore: class {} }))
@@ -24,7 +23,7 @@ vi.mock('../agents/journal-companion-agent', () => ({
   journalCompanionAgent: { id: 'journal-companion-agent' },
 }))
 vi.mock('../scorers', () => ({ answerRelevancyScorer: {}, toxicityScorer: {} }))
-vi.mock('../observability', () => ({ logger: {}, observability: {} }))
+vi.mock('../observability', () => ({ logger: { warn: vi.fn() }, observability: {} }))
 vi.mock('../tools/get-entry-tool', () => ({ getEntryTool: { id: 'get-entry' } }))
 vi.mock('../tools/search-entries-tool', () => ({ searchEntriesTool: { id: 'search-entries' } }))
 
