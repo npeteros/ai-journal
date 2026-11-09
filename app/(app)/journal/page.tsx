@@ -1,3 +1,4 @@
+import { dehydrate, HydrationBoundary } from '@tanstack/react-query'
 import type { Metadata } from 'next'
 
 import { Page } from '@/components/app-shell/page'
@@ -6,18 +7,35 @@ import { EntryList } from '@/components/journal/entry-list'
 import { TodayBand } from '@/components/journal/today-band'
 import { Rise } from '@/components/motion'
 import { formatTodayOverline, greetingFor } from '@/src/lib/format'
-import {
-  entryFilters,
-  placeholderEntries,
-  todaysPrompt,
-  weekMoods,
-} from '@/src/lib/placeholder/entries'
+import { todaysPrompt, weekMoods } from '@/src/lib/placeholder/entries'
 import { placeholderUser } from '@/src/lib/placeholder/user'
+import { PAGE_SIZE_DEFAULT } from '@/src/server/api/routers/v1/entry/schema'
+import { getQueryClient, trpc } from '@/src/server/trpc/server'
 
 export const metadata: Metadata = { title: 'Journal' }
 
-export default function JournalHomePage() {
+export default async function JournalHomePage() {
   const jaden = PLACEMENTS.journalHome
+
+  // Prefetch the first page of entries and the tag chips so the list renders without a loading
+  // flash. Prefetch swallows errors, so a failure here surfaces as the list's error state instead.
+  const queryClient = getQueryClient()
+  await Promise.all([
+    queryClient.prefetchInfiniteQuery({
+      // Must match the key in components/journal/entry-list.tsx
+      queryKey: [
+        ...trpc.v1.entry.findMany.pathKey(),
+        'journal-home',
+        { searchText: undefined, tagId: undefined },
+      ],
+      initialPageParam: 0,
+      queryFn: ({ pageParam }) =>
+        queryClient.fetchQuery(
+          trpc.v1.entry.findMany.queryOptions({ skip: pageParam, take: PAGE_SIZE_DEFAULT }),
+        ),
+    }),
+    queryClient.prefetchQuery(trpc.v1.tag.findMany.queryOptions()),
+  ])
 
   return (
     <Page>
@@ -48,7 +66,9 @@ export default function JournalHomePage() {
         />
       </Rise>
 
-      <EntryList entries={placeholderEntries} filters={entryFilters} />
+      <HydrationBoundary state={dehydrate(queryClient)}>
+        <EntryList />
+      </HydrationBoundary>
     </Page>
   )
 }
