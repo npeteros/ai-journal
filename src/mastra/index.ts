@@ -3,6 +3,7 @@ import { Mastra } from '@mastra/core/mastra'
 import { LibSQLStore } from '@mastra/libsql'
 import { DuckDBStore } from '@mastra/duckdb'
 import { MastraCompositeStore, type StorageDomains } from '@mastra/core/storage'
+import { entryAnalysisAgent } from './agents/entry-analysis-agent'
 import { entryTitleAgent } from './agents/entry-title-agent'
 import { journalCompanionAgent } from './agents/journal-companion-agent'
 import {
@@ -21,6 +22,7 @@ import {
 import { logger, observability } from './observability'
 import { getEntryTool } from './tools/get-entry-tool'
 import { searchEntriesTool } from './tools/search-entries-tool'
+import { entryAnalysisWorkflow } from './workflows/entry-analysis-workflow'
 
 const globalForDuckDB = globalThis as unknown as {
   duckDBObservability?: Promise<StorageDomains['observability']>
@@ -57,8 +59,9 @@ if (isDev) globalForDuckDB.duckDBObservability ??= openObservabilityStore()
 const observabilityStore = isDev ? await globalForDuckDB.duckDBObservability : undefined
 
 export const mastra = new Mastra({
-  agents: { journalCompanionAgent, entryTitleAgent },
+  agents: { journalCompanionAgent, entryTitleAgent, entryAnalysisAgent },
   tools: { searchEntriesTool, getEntryTool },
+  workflows: { entryAnalysisWorkflow },
   scorers: {
     answerRelevancyScorer,
     toxicityScorer,

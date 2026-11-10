@@ -41,9 +41,13 @@ const groupDateFormat = new Intl.DateTimeFormat('en-US', {
   timeZone: 'UTC',
 })
 
-/** "Today", "Yesterday", then the date. `entryDate` is a date-only value (UTC midnight). */
-function dateLabel(entryDate: string, now: Date) {
-  const key = entryDate.slice(0, 10)
+/**
+ * "Today", "Yesterday", then the date. `entryDate` is a date-only value (UTC midnight).
+ * It's an ISO string when fetched over HTTP, but a `Date` when it comes from the RSC prefetch
+ * (the server caller skips JSON, and RSC serialization keeps Dates), so accept both.
+ */
+function dateLabel(entryDate: string | Date, now: Date) {
+  const key = new Date(entryDate).toISOString().slice(0, 10)
   const yesterday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1)
   if (key === localDateKey(now)) return 'Today'
   if (key === localDateKey(yesterday)) return 'Yesterday'
