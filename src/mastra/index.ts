@@ -5,7 +5,19 @@ import { DuckDBStore } from '@mastra/duckdb'
 import { MastraCompositeStore, type StorageDomains } from '@mastra/core/storage'
 import { entryTitleAgent } from './agents/entry-title-agent'
 import { journalCompanionAgent } from './agents/journal-companion-agent'
-import { answerRelevancyScorer, toxicityScorer } from './scorers'
+import {
+  answerRelevancyScorer,
+  entryTitleFormatScorer,
+  entryTitleInjectionScorer,
+  entryTitleQualityScorer,
+  journalCitationScorer,
+  journalClinicalBoundaryScorer,
+  journalGroundednessScorer,
+  journalResponsePresenceScorer,
+  journalToneScorer,
+  journalUnknownScorer,
+  toxicityScorer,
+} from './scorers'
 import { logger, observability } from './observability'
 import { getEntryTool } from './tools/get-entry-tool'
 import { searchEntriesTool } from './tools/search-entries-tool'
@@ -47,7 +59,19 @@ const observabilityStore = isDev ? await globalForDuckDB.duckDBObservability : u
 export const mastra = new Mastra({
   agents: { journalCompanionAgent, entryTitleAgent },
   tools: { searchEntriesTool, getEntryTool },
-  scorers: { answerRelevancyScorer, toxicityScorer },
+  scorers: {
+    answerRelevancyScorer,
+    toxicityScorer,
+    journalGroundednessScorer,
+    journalResponsePresenceScorer,
+    journalCitationScorer,
+    journalClinicalBoundaryScorer,
+    journalUnknownScorer,
+    journalToneScorer,
+    entryTitleFormatScorer,
+    entryTitleInjectionScorer,
+    entryTitleQualityScorer,
+  },
   storage: new MastraCompositeStore({
     id: 'composite-storage',
     default: new LibSQLStore({

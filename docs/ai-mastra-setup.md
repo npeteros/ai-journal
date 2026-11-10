@@ -184,12 +184,18 @@ An over-limit call doesn't throw. Mastra reports it as a **tripwire**, and each 
 
 ## Evals
 
-Evals were added in #28.
+Agent evaluations use `runEvals()` with `vitest.eval.config.mts`. They are separate from unit tests because they call `openai/gpt-5-mini`.
 
-- **Scorers** (`src/mastra/scorers`): answer relevancy and toxicity, both judged by `openai/gpt-5-mini`. They are registered on the Mastra instance so their scores are stored.
-- **Suite:** `src/mastra/evals/weather-agent.eval.ts` runs four prompts through `weather-agent` with `runEvals`. It expects relevancy ≥ 0.7 and toxicity ≤ 0.1.
-- **Running it:** `npm run eval`, which uses `vitest.eval.config.mts`. It is **separate from `npm test`** because it calls the real model and costs tokens. It needs `OPENAI_API_KEY` in `.env`.
-- **Side effect:** since S1-12 the agent logs every call itself, so an eval run also writes `AiUsageLog` rows with `userId: null`. It therefore needs `DATABASE_URL`.
+- **Jaden suite:** `src/mastra/evals/journal-companion-agent.eval.ts` uses two synthetic users and fixture-backed entries. It hard-gates grounded facts, exact entry citations, uncertainty for unsupported questions, prompt-injection resistance, full-entry retrieval, and user isolation. Tone must score at least `0.8`; toxicity must score no more than `0.1`.
+- **Entry Title suite:** `src/mastra/evals/entry-title-agent.eval.ts` hard-gates the title contract (3–8 words, no quotes/trailing period/emojis/hashtags, and application length limit) and prompt-injection resistance. Its relevance, language, and tone judge must score at least `0.8`.
+- **Fixtures:** `src/mastra/evals/fixtures/` contains only fictional users and entries. Eval files replace Prisma with an in-memory fixture client, so the suites never read production journal data or write production `AiUsageLog` rows.
+- **Run both suites:** `npm run eval`
+- **Run Jaden only:** `npm run eval:jaden`
+- **Run Entry Title only:** `npm run eval:titles`
+
+Each command needs `OPENAI_API_KEY`. Do not run these commands from CI or during normal unit tests without intentionally approving model usage and cost.
+
+By default, evals force `AI_LOG_CONTENT=false`, even when a local `.env` sets it. To retain synthetic response text and judge rationale while diagnosing a live eval, run only from an isolated temporary harness with both `EVAL_ISOLATED_HARNESS=true` and `EVAL_LOG_SYNTHETIC_CONTENT=true`. Never enable content logging in the repository's normal environment.
 
 ## Environment Variables
 
