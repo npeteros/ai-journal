@@ -3,7 +3,6 @@ import Link from 'next/link'
 
 import { Page } from '@/components/app-shell/page'
 import { JournalChat } from '@/components/chat/journal-chat'
-import { chatTypingLabel, placeholderChat } from '@/src/lib/placeholder/chat'
 
 export const metadata: Metadata = { title: 'Chat' }
 
@@ -27,7 +26,7 @@ export default function ChatPage() {
             anytime.
           </p>
         </header>
-        <JournalChat initialMessages={placeholderChat} typingLabel={chatTypingLabel} />
+        <JournalChat />
       </div>
     </Page>
   )

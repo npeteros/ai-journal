@@ -1,92 +1,137 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import Link from 'next/link'
+import { useChat } from '@ai-sdk/react'
+import { APICallError, DefaultChatTransport, isTextUIPart, isToolUIPart, type UIMessage } from 'ai'
 import { AnimatePresence, motion } from 'motion/react'
-import { ArrowRight } from 'lucide-react'
+import { ArrowRight, BookOpen } from 'lucide-react'
 import { cn } from 'cn'
 
 import { JadenFor, JadenPerch, PLACEMENTS } from '@/components/jaden'
 import { SPRING } from '@/components/motion'
 import { AiLabel, Orb } from '@/components/ui/ai'
-import type { PlaceholderChatMessage } from '@/src/lib/placeholder/chat'
+import { CHAT_API, CHAT_RATE_LIMITED_CODE, CHAT_RATE_LIMITED_MESSAGE } from '@/src/lib/chat'
+import { collectEntryRefs, splitCitations, type EntryRef } from './citations'
 
-const PLACEHOLDER_REPLY =
-  "I'm only a preview right now — once I'm connected, I'll answer from your own entries."
+const STARTER_QUESTIONS = [
+  'What themes keep coming up in my entries?',
+  'How have I been feeling this past week?',
+  "What's been on my mind about work lately?",
+  'When did I last feel proud of myself?',
+]
 
-const bubbleIn = (from: 'left' | 'right', i: number) => ({
+// Earlier turns live in the agent's memory, so only the new message is sent.
+const transport = new DefaultChatTransport<UIMessage>({
+  api: CHAT_API,
+  prepareSendMessagesRequest: ({ messages }) => ({ body: { message: messages.at(-1) } }),
+})
+
+const bubbleIn = (from: 'left' | 'right') => ({
   initial: { opacity: 0, y: 10, scale: 0.9 },
   animate: { opacity: 1, y: 0, scale: 1 },
-  transition: { ...SPRING, delay: i * 0.26 + 0.2 },
+  transition: SPRING,
   style: { transformOrigin: from === 'right' ? '100% 100%' : '0% 100%' },
 })
 
-/**
- * Chat with your journal (placeholder): renders the mock conversation; sending appends the
- * message, shows JADEN "reading", then a canned reply. Wire to the Mastra chat agent later
- * (see app/dev/chat for the streaming pattern).
- */
-export function JournalChat({
-  initialMessages,
-  typingLabel,
-}: {
-  initialMessages: PlaceholderChatMessage[]
-  typingLabel: string
-}) {
-  const [messages, setMessages] = useState(initialMessages)
+function getText(message: UIMessage) {
+  return message.parts
+    .filter(isTextUIPart)
+    .map((part) => part.text)
+    .join('')
+}
+
+function isRateLimited(error: Error | undefined): string | null {
+  if (!error || !APICallError.isInstance(error) || error.statusCode !== 429) return null
+  try {
+    const body: unknown = JSON.parse(error.responseBody ?? '')
+    if (typeof body === 'object' && body !== null && 'code' in body && 'error' in body) {
+      if (body.code === CHAT_RATE_LIMITED_CODE && typeof body.error === 'string') return body.error
+    }
+  } catch {
+    // Non-JSON body: fall back to the default copy.
+  }
+  return CHAT_RATE_LIMITED_MESSAGE
+}
+
+/** "Chat with your journal": streams answers from the journal companion agent. */
+export function JournalChat({ initialMessages }: { initialMessages: UIMessage[] }) {
   const [draft, setDraft] = useState('')
-  const [thinking, setThinking] = useState(true)
   const endRef = useRef<HTMLDivElement>(null)
-  const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const initialCount = initialMessages.length
+  const { messages, sendMessage, regenerate, clearError, status, error } = useChat({
+    messages: initialMessages,
+    transport,
+  })
 
-  useEffect(
-    () => () => {
-      if (timer.current) clearTimeout(timer.current)
-    },
-    [],
-  )
+  const busy = status === 'submitted' || status === 'streaming'
+  const refs = useMemo(() => collectEntryRefs(messages), [messages])
+  const rateLimitMessage = isRateLimited(error)
 
+  const last = messages.at(-1)
+  const lastText = last ? getText(last) : ''
+  const awaitingText = status === 'submitted' || (status === 'streaming' && !lastText)
+  const thinking = busy && (last?.role === 'user' || awaitingText)
+  const readingEntries =
+    last?.role === 'assistant' &&
+    last.parts.some(
+      (part) =>
+        isToolUIPart(part) && part.state !== 'output-available' && part.state !== 'output-error',
+    )
+
+  const hasMounted = useRef(false)
   useEffect(() => {
-    if (messages.length > initialCount)
-      endRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' })
-  }, [messages.length, thinking, initialCount])
+    endRef.current?.scrollIntoView({
+      behavior: hasMounted.current ? 'smooth' : 'instant',
+      block: 'end',
+    })
+    hasMounted.current = true
+  }, [messages.length, lastText.length, thinking, error])
 
-  function send() {
-    const text = draft.trim()
-    if (!text) return
-    setMessages((prev) => [...prev, { id: `u${prev.length}`, role: 'user', text }])
+  function send(text: string) {
+    const trimmed = text.trim()
+    if (!trimmed || busy) return
+    clearError()
+    void sendMessage({ text: trimmed })
     setDraft('')
-    setThinking(true)
-    timer.current = setTimeout(() => {
-      setMessages((prev) => [
-        ...prev,
-        { id: `a${prev.length}`, role: 'assistant', text: PLACEHOLDER_REPLY },
-      ])
-      setThinking(false)
-    }, 1800)
+  }
+
+  function retry() {
+    clearError()
+    void regenerate()
   }
 
   return (
     <>
-      <div className="flex flex-1 flex-col gap-[18px] py-4" aria-live="polite">
-        {messages.map((m, i) => {
-          const stagger = i < initialCount ? i : 0
-          return m.role === 'user' ? (
-            <motion.div
-              key={m.id}
-              {...bubbleIn('right', stagger)}
-              className="max-w-[85%] self-end rounded-[18px_18px_4px_18px] bg-neutral-900 px-[18px] py-3.5 text-[15px] leading-[1.55] text-surface sm:max-w-[70%]"
+      <div className="flex flex-1 flex-col gap-[18px] py-4" aria-live="polite" aria-busy={busy}>
+        {messages.length === 0 && !busy && (
+          <StarterQuestions onPick={(question) => send(question)} />
+        )}
+
+        {messages.map((message) => {
+          const text = getText(message)
+          if (message.role === 'user') {
+            return (
+              <motion.div
+                key={message.id}
+                {...bubbleIn('right')}
+                className="max-w-[85%] self-end rounded-[18px_18px_4px_18px] bg-neutral-900 px-[18px] py-3.5 text-[15px] leading-[1.55] whitespace-pre-wrap text-surface sm:max-w-[70%]"
+              >
+                {text}
+              </motion.div>
+            )
+          }
+          if (!text) return null
+          return (
+            <div
+              key={message.id}
+              className="flex max-w-[90%] flex-col gap-1.5 self-start sm:max-w-[78%]"
             >
-              {m.text}
-            </motion.div>
-          ) : (
-            <div key={m.id} className="flex max-w-[90%] flex-col gap-1.5 self-start sm:max-w-[78%]">
               <AiLabel />
               <motion.div
-                {...bubbleIn('left', stagger)}
-                className="lv-card rounded-[18px_18px_18px_4px] px-[18px] py-3.5 text-[15px] leading-[1.6] text-neutral-900"
+                {...bubbleIn('left')}
+                className="lv-card rounded-[18px_18px_18px_4px] px-[18px] py-3.5 text-[15px] leading-[1.6] whitespace-pre-wrap text-neutral-900"
               >
-                {m.text}
+                <AssistantText text={text} refs={refs} />
               </motion.div>
             </div>
           )
@@ -96,7 +141,7 @@ export function JournalChat({
           {thinking && (
             <motion.div
               key="typing"
-              {...bubbleIn('left', messages.length === initialCount ? initialCount : 0)}
+              {...bubbleIn('left')}
               exit={{ opacity: 0, scale: 0.9, transition: { duration: 0.15 } }}
               className="flex items-center gap-2.5 self-start"
             >
@@ -108,19 +153,37 @@ export function JournalChat({
                   <i />
                 </span>
                 <span className="text-[12px] leading-none font-medium text-neutral-400">
-                  {typingLabel}
+                  {readingEntries ? 'reading your entries' : 'thinking'}
                 </span>
               </output>
             </motion.div>
           )}
         </AnimatePresence>
+
+        {error && (
+          <div
+            role="alert"
+            className="flex max-w-[90%] flex-col gap-2 self-start rounded-[18px] border border-neutral-200 bg-surface px-[18px] py-3.5 text-[14px] leading-normal text-neutral-600 sm:max-w-[78%]"
+          >
+            {rateLimitMessage ?? "Something went wrong and JADEN couldn't answer."}
+            {!rateLimitMessage && (
+              <button
+                type="button"
+                onClick={retry}
+                className="self-start text-[13px] font-semibold text-cloud-700 hover:underline"
+              >
+                Try again
+              </button>
+            )}
+          </div>
+        )}
         <div ref={endRef} />
       </div>
 
       <form
         onSubmit={(e) => {
           e.preventDefault()
-          send()
+          send(draft)
         }}
         className="sticky bottom-[calc(76px+env(safe-area-inset-bottom))] z-10 -mx-5 flex items-center gap-3 border-t border-neutral-200 bg-[var(--lv-card-bg)] px-5 py-3.5 backdrop-blur-[18px] sm:-mx-8 sm:px-8 lg:mx-0 lg:border-0 lg:bg-transparent lg:px-0 lg:pt-5 lg:pb-10 lg:backdrop-blur-none lg:bottom-0"
       >
@@ -141,13 +204,14 @@ export function JournalChat({
             onChange={(e) => setDraft(e.target.value)}
             placeholder="Ask your journal anything…"
             autoComplete="off"
+            maxLength={2000}
             className="h-[52px] w-full rounded-[26px] border border-neutral-200 bg-surface px-5 text-[15px] text-neutral-900 outline-none placeholder:text-neutral-400 focus:border-neutral-400"
           />
         </div>
         <button
           type="submit"
           aria-label="Send"
-          disabled={!draft.trim()}
+          disabled={!draft.trim() || busy}
           className={cn(
             'flex size-[52px] shrink-0 items-center justify-center rounded-full bg-neutral-900 text-surface transition-[transform,opacity] duration-300 ease-spring hover:-translate-y-px disabled:opacity-60',
           )}
@@ -156,5 +220,48 @@ export function JournalChat({
         </button>
       </form>
     </>
+  )
+}
+
+function StarterQuestions({ onPick }: { onPick: (question: string) => void }) {
+  return (
+    <div className="flex flex-col gap-3 self-start">
+      <AiLabel />
+      <p className="text-[15px] leading-[1.6] text-neutral-600">
+        Ask me anything about what you&apos;ve written. A few ideas to start:
+      </p>
+      <ul className="flex flex-wrap gap-2">
+        {STARTER_QUESTIONS.map((question) => (
+          <li key={question}>
+            <button
+              type="button"
+              onClick={() => onPick(question)}
+              className="rounded-full border border-neutral-200 bg-surface px-4 py-2 text-left text-[13px] font-medium text-neutral-700 transition-colors hover:border-neutral-400"
+            >
+              {question}
+            </button>
+          </li>
+        ))}
+      </ul>
+    </div>
+  )
+}
+
+/** Assistant text with entry citations rendered as links to the entry. */
+function AssistantText({ text, refs }: { text: string; refs: EntryRef[] }) {
+  return splitCitations(text, refs).map((segment, i) =>
+    segment.type === 'text' ? (
+      <span key={i}>{segment.text}</span>
+    ) : (
+      <Link
+        key={i}
+        href={`/journal/${segment.entry.id}`}
+        className="mx-0.5 inline-flex items-center gap-1 rounded-full bg-neutral-100 px-2 py-0.5 align-baseline text-[13px] font-semibold text-cloud-700 hover:underline"
+      >
+        <BookOpen className="size-3.5" aria-hidden />
+        {segment.entry.title}
+        <span className="font-normal text-neutral-400">· {segment.entry.date}</span>
+      </Link>
+    ),
   )
 }
