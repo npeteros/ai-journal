@@ -10,6 +10,8 @@
     "test": "vitest",
     "test:run": "vitest run",
     "eval": "vitest run --config vitest.eval.config.mts",
+    "eval:jaden": "vitest run --config vitest.eval.config.mts src/mastra/evals/journal-companion-agent.eval.ts",
+    "eval:titles": "vitest run --config vitest.eval.config.mts src/mastra/evals/entry-title-agent.eval.ts",
     "lint": "oxlint",
     "lint:fix": "oxlint --fix",
     "postinstall": "prisma generate && next typegen"

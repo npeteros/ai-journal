@@ -25,7 +25,19 @@ vi.mock('../agents/entry-analysis-agent', () => ({
 vi.mock('../agents/journal-companion-agent', () => ({
   journalCompanionAgent: { id: 'journal-companion-agent' },
 }))
-vi.mock('../scorers', () => ({ answerRelevancyScorer: {}, toxicityScorer: {} }))
+vi.mock('../scorers', () => ({
+  answerRelevancyScorer: {},
+  toxicityScorer: {},
+  journalGroundednessScorer: {},
+  journalResponsePresenceScorer: {},
+  journalCitationScorer: {},
+  journalClinicalBoundaryScorer: {},
+  journalUnknownScorer: {},
+  journalToneScorer: {},
+  entryTitleFormatScorer: {},
+  entryTitleInjectionScorer: {},
+  entryTitleQualityScorer: {},
+}))
 vi.mock('../observability', () => ({ logger: { warn: vi.fn() }, observability: {} }))
 vi.mock('../tools/get-entry-tool', () => ({ getEntryTool: { id: 'get-entry' } }))
 vi.mock('../tools/search-entries-tool', () => ({ searchEntriesTool: { id: 'search-entries' } }))
@@ -46,6 +58,17 @@ describe('Mastra registration', () => {
       tools: {
         searchEntriesTool: { id: 'search-entries' },
         getEntryTool: { id: 'get-entry' },
+      },
+      scorers: {
+        journalGroundednessScorer: {},
+        journalResponsePresenceScorer: {},
+        journalCitationScorer: {},
+        journalClinicalBoundaryScorer: {},
+        journalUnknownScorer: {},
+        journalToneScorer: {},
+        entryTitleFormatScorer: {},
+        entryTitleInjectionScorer: {},
+        entryTitleQualityScorer: {},
       },
     })
     expect(mocks.config).toHaveProperty('workflows', {
