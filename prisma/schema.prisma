@@ -95,21 +95,48 @@ model AiUsageLog {
 }
 
 model Entry {
-  id        String     @id @default(uuid()) @db.Uuid
+  id        String         @id @default(uuid()) @db.Uuid
   userId    String
-  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user      User           @relation(fields: [userId], references: [id], onDelete: Cascade)
   title     String
   body      String
-  writtenAt DateTime   @default(now()) @db.Timestamptz
-  entryDate DateTime   @db.Date
-  createdAt DateTime   @default(now()) @db.Timestamptz
-  updatedAt DateTime   @updatedAt @db.Timestamptz
-  deletedAt DateTime?  @db.Timestamptz
+  writtenAt DateTime       @default(now()) @db.Timestamptz
+  entryDate DateTime       @db.Date
+  createdAt DateTime       @default(now()) @db.Timestamptz
+  updatedAt DateTime       @updatedAt @db.Timestamptz
+  deletedAt DateTime?      @db.Timestamptz
   tags      EntryTag[]
+  analysis  EntryAnalysis?
 
   @@index([userId, writtenAt])
   @@index([userId, entryDate])
   @@map("entry")
+}
+
+/// Matches `moods` in src/lib/design-tokens/colors.ts.
+enum Mood {
+  calm
+  grateful
+  tired
+  anxious
+  hard
+}
+
+model EntryAnalysis {
+  entryId       String   @id @db.Uuid
+  entry         Entry    @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  mood          Mood
+  /// 0–100, higher = better.
+  moodScore     Int
+  summary       String[]
+  themes        String[]
+  suggestedTags String[]
+  /// Hash of the body that was analyzed; re-analysis is skipped when it matches.
+  bodyHash      String
+  model         String
+  analyzedAt    DateTime @db.Timestamptz
+
+  @@map("entry_analysis")
 }
 
 model Tag {
