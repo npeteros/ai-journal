@@ -30,6 +30,7 @@ const mocks = vi.hoisted(() => {
       },
     },
     generateTitle: vi.fn(),
+    scheduleEntryAnalysis: vi.fn(),
   }
 })
 
@@ -37,6 +38,9 @@ vi.mock('@/src/lib/prisma', () => ({ default: mocks.prisma }))
 vi.mock('@/src/server/auth/auth', () => ({ auth: { api: { getSession: vi.fn() } } }))
 vi.mock('../services/EntryTitleService', () => ({
   entryTitleService: { generate: mocks.generateTitle },
+}))
+vi.mock('../services/scheduleEntryAnalysis', () => ({
+  scheduleEntryAnalysis: mocks.scheduleEntryAnalysis,
 }))
 
 const createCaller = createCallerFactory(entryRouter)
@@ -224,5 +228,53 @@ describe('entry mutations', () => {
       }),
     )
     await expectNotFound(callerFor().delete({ id: ENTRY_ID }))
+  })
+
+  describe('entry analysis trigger', () => {
+    beforeEach(() => {
+      mocks.prisma.entry.findFirst.mockResolvedValue({
+        title: 'Existing title',
+        body: 'Existing body',
+      })
+    })
+
+    it('schedules analysis after create', async () => {
+      await callerFor().create({ title: 'Title', body: 'A new entry', timeZone: 'UTC' })
+
+      expect(mocks.scheduleEntryAnalysis).toHaveBeenCalledOnce()
+      expect(mocks.scheduleEntryAnalysis).toHaveBeenCalledWith({
+        entryId: ENTRY_ID,
+        userId: 'user-1',
+        body: 'A new entry',
+      })
+    })
+
+    it('schedules analysis when the body changes', async () => {
+      await callerFor().update({ id: ENTRY_ID, body: 'Updated body' })
+
+      expect(mocks.scheduleEntryAnalysis).toHaveBeenCalledWith({
+        entryId: ENTRY_ID,
+        userId: 'user-1',
+        body: 'Updated body',
+      })
+    })
+
+    it.each([
+      ['the body is unchanged', { body: 'Existing body' }],
+      ['only the title changes', { title: 'New title' }],
+      ['only the tags change', { tags: ['Work'] }],
+      ['only the date changes', { writtenAt: '2026-08-24T16:30:00Z', timeZone: 'UTC' }],
+    ])('does not schedule analysis when %s', async (_case, changes) => {
+      await callerFor().update({ id: ENTRY_ID, ...changes })
+
+      expect(mocks.scheduleEntryAnalysis).not.toHaveBeenCalled()
+    })
+
+    it('does not schedule analysis when the update fails', async () => {
+      mocks.tx.entry.updateMany.mockResolvedValue({ count: 0 })
+
+      await expectNotFound(callerFor().update({ id: ENTRY_ID, body: 'Updated body' }))
+      expect(mocks.scheduleEntryAnalysis).not.toHaveBeenCalled()
+    })
   })
 })
