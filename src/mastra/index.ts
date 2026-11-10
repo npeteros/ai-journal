@@ -10,6 +10,7 @@ import { answerRelevancyScorer, toxicityScorer } from './scorers'
 import { logger, observability } from './observability'
 import { getEntryTool } from './tools/get-entry-tool'
 import { searchEntriesTool } from './tools/search-entries-tool'
+import { entryAnalysisWorkflow } from './workflows/entry-analysis-workflow'
 
 const globalForDuckDB = globalThis as unknown as {
   duckDBObservability?: Promise<StorageDomains['observability']>
@@ -48,6 +49,7 @@ const observabilityStore = isDev ? await globalForDuckDB.duckDBObservability : u
 export const mastra = new Mastra({
   agents: { journalCompanionAgent, entryTitleAgent, entryAnalysisAgent },
   tools: { searchEntriesTool, getEntryTool },
+  workflows: { entryAnalysisWorkflow },
   scorers: { answerRelevancyScorer, toxicityScorer },
   storage: new MastraCompositeStore({
     id: 'composite-storage',

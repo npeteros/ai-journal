@@ -29,6 +29,9 @@ vi.mock('../scorers', () => ({ answerRelevancyScorer: {}, toxicityScorer: {} }))
 vi.mock('../observability', () => ({ logger: { warn: vi.fn() }, observability: {} }))
 vi.mock('../tools/get-entry-tool', () => ({ getEntryTool: { id: 'get-entry' } }))
 vi.mock('../tools/search-entries-tool', () => ({ searchEntriesTool: { id: 'search-entries' } }))
+vi.mock('../workflows/entry-analysis-workflow', () => ({
+  entryAnalysisWorkflow: { id: 'entry-analysis-workflow' },
+}))
 
 await import('../index')
 
@@ -45,6 +48,8 @@ describe('Mastra registration', () => {
         getEntryTool: { id: 'get-entry' },
       },
     })
-    expect(mocks.config).not.toHaveProperty('workflows')
+    expect(mocks.config).toHaveProperty('workflows', {
+      entryAnalysisWorkflow: { id: 'entry-analysis-workflow' },
+    })
   })
 })
