@@ -19,6 +19,9 @@ vi.mock('@mastra/duckdb', () => ({
 }))
 vi.mock('@mastra/core/storage', () => ({ MastraCompositeStore: class {} }))
 vi.mock('../agents/entry-title-agent', () => ({ entryTitleAgent: { id: 'entry-title-agent' } }))
+vi.mock('../agents/entry-analysis-agent', () => ({
+  entryAnalysisAgent: { id: 'entry-analysis-agent' },
+}))
 vi.mock('../agents/journal-companion-agent', () => ({
   journalCompanionAgent: { id: 'journal-companion-agent' },
 }))
@@ -35,6 +38,7 @@ describe('Mastra registration', () => {
       agents: {
         journalCompanionAgent: { id: 'journal-companion-agent' },
         entryTitleAgent: { id: 'entry-title-agent' },
+        entryAnalysisAgent: { id: 'entry-analysis-agent' },
       },
       tools: {
         searchEntriesTool: { id: 'search-entries' },
