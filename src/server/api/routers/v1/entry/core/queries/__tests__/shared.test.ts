@@ -28,6 +28,16 @@ const dbEntry = {
   updatedAt: new Date('2026-08-25T00:14:00Z'),
   deletedAt: null,
   tags: [],
+  analysis: null,
+}
+
+const analysis = {
+  mood: 'calm',
+  moodScore: 72,
+  summary: ['You took a slow morning with coffee.'],
+  themes: ['rest'],
+  suggestedTags: ['mornings'],
+  analyzedAt: new Date('2026-08-25T00:15:00Z'),
 }
 
 describe('shared entry queries', () => {
@@ -69,6 +79,36 @@ describe('shared entry queries', () => {
     await expect(findOneEntryForUser('user-2', ENTRY_ID)).resolves.toBeNull()
     expect(mocks.prisma.entry.findFirst).toHaveBeenCalledWith(
       expect.objectContaining({ where: { id: ENTRY_ID, userId: 'user-2', deletedAt: null } }),
+    )
+  })
+
+  it('selects the public analysis fields only', async () => {
+    await findManyEntriesForUser('user-1', { skip: 0, take: 10 })
+
+    const { include } = mocks.prisma.entry.findMany.mock.calls[0][0]
+    expect(include.analysis).toEqual({
+      select: {
+        mood: true,
+        moodScore: true,
+        summary: true,
+        themes: true,
+        suggestedTags: true,
+        analyzedAt: true,
+      },
+    })
+  })
+
+  it('returns the analysis when one exists and null otherwise', async () => {
+    mocks.prisma.entry.findMany.mockResolvedValue([{ ...dbEntry, analysis }, dbEntry])
+    mocks.prisma.entry.findFirst.mockResolvedValue({ ...dbEntry, analysis })
+
+    const { items } = await findManyEntriesForUser('user-1', { skip: 0, take: 10 })
+    expect(items.map((item) => item.analysis)).toEqual([analysis, null])
+    await expect(findOneEntryForUser('user-1', ENTRY_ID)).resolves.toMatchObject({ analysis })
+    expect(mocks.prisma.entry.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        include: expect.objectContaining({ analysis: expect.any(Object) }),
+      }),
     )
   })
 })

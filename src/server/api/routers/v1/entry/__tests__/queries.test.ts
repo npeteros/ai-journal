@@ -44,6 +44,7 @@ const dbEntry = {
   updatedAt: new Date('2026-08-25T00:14:00Z'),
   deletedAt: null,
   tags: [{ tag: { id: TAG_ID, name: 'Gratitude' } }],
+  analysis: null,
 }
 
 const { tags: _tags, ...dbEntryFields } = dbEntry

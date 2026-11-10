@@ -2,18 +2,29 @@ import type { Prisma } from '@/src/generated/prisma/client'
 import prisma from '@/src/lib/prisma'
 import type { EntryFindManyData } from '../../schema'
 
-export const entryWithTagsInclude = {
+export const entryInclude = {
   tags: {
     where: { tag: { deletedAt: null } },
     select: { tag: { select: { id: true, name: true } } },
     orderBy: { tag: { name: 'asc' } },
   },
+  // Internal bookkeeping (bodyHash, model) is left out of the API response.
+  analysis: {
+    select: {
+      mood: true,
+      moodScore: true,
+      summary: true,
+      themes: true,
+      suggestedTags: true,
+      analyzedAt: true,
+    },
+  },
 } satisfies Prisma.EntryInclude
 
-type EntryWithTags = Prisma.EntryGetPayload<{ include: typeof entryWithTagsInclude }>
+type EntryWithRelations = Prisma.EntryGetPayload<{ include: typeof entryInclude }>
 
-export function toEntryDto({ tags, ...entry }: EntryWithTags) {
-  return { ...entry, tags: tags.map(({ tag }) => tag) }
+export function toEntryDto({ tags, analysis, ...entry }: EntryWithRelations) {
+  return { ...entry, tags: tags.map(({ tag }) => tag), analysis: analysis ?? null }
 }
 
 export type EntryDto = ReturnType<typeof toEntryDto>
@@ -55,7 +66,7 @@ export async function findManyEntriesForUser(userId: string, input: EntryFindMan
   const [entries, total] = await prisma.$transaction([
     prisma.entry.findMany({
       where,
-      include: entryWithTagsInclude,
+      include: entryInclude,
       // `id` breaks ties so offset pages stay stable for equal `writtenAt` values.
       orderBy: [{ writtenAt: 'desc' }, { id: 'desc' }],
       skip: input.skip,
@@ -71,7 +82,7 @@ export async function findManyEntriesForUser(userId: string, input: EntryFindMan
 export async function findOneEntryForUser(userId: string, id: string) {
   const entry = await prisma.entry.findFirst({
     where: { id, userId, deletedAt: null },
-    include: entryWithTagsInclude,
+    include: entryInclude,
   })
 
   return entry ? toEntryDto(entry) : null
