@@ -3,11 +3,19 @@ import Link from 'next/link'
 
 import { Page } from '@/components/app-shell/page'
 import { JournalChat } from '@/components/chat/journal-chat'
-import { chatTypingLabel, placeholderChat } from '@/src/lib/placeholder/chat'
+import { auth } from '@/src/server/auth/auth'
+import { loadChatHistory } from '@/src/server/chat/thread'
+import { headers } from 'next/headers'
+import { redirect } from 'next/navigation'
 
 export const metadata: Metadata = { title: 'Chat' }
 
-export default function ChatPage() {
+export default async function ChatPage() {
+  const session = await auth.api.getSession({ headers: await headers() })
+  if (!session) redirect('/login')
+
+  const initialMessages = await loadChatHistory(session.user.id)
+
   return (
     <Page tone="mist" className="items-center gap-0 pb-0 lg:pt-10 lg:pb-0">
       <div className="flex w-full max-w-[760px] flex-1 flex-col">
@@ -27,7 +35,7 @@ export default function ChatPage() {
             anytime.
           </p>
         </header>
-        <JournalChat initialMessages={placeholderChat} typingLabel={chatTypingLabel} />
+        <JournalChat initialMessages={initialMessages} />
       </div>
     </Page>
   )
