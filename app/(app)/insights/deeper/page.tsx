@@ -2,15 +2,13 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 
 import { Page } from '@/components/app-shell/page'
+import { EmotionalTrendCard } from '@/components/insights/emotional-trend-card'
 import { InsightsHeader } from '@/components/insights/insights-header'
-import { LineChart } from '@/components/insights/line-chart'
 import { Rise } from '@/components/motion'
 import { Card, CardHeading } from '@/components/ui/card'
 import { TrendBadge } from '@/components/ui/data'
 import { BarList } from '@/components/insights/bar-list'
 import {
-  emotionalTrend,
-  emotionalTrendCaption,
   growthSuggestions,
   personality,
   personalitySnapshot,
@@ -29,16 +27,7 @@ export default function DeeperInsightsPage() {
       <div className="grid gap-5 lg:grid-cols-[1.6fr_1fr]">
         <div className="flex flex-col gap-5">
           <Rise>
-            <Card className="flex flex-col gap-3 lg:p-6">
-              <CardHeading>Emotional trend, last 6 months</CardHeading>
-              <LineChart
-                data={emotionalTrend}
-                tone="cloud-500"
-                height={160}
-                label={emotionalTrendCaption}
-              />
-              <p className="text-[13px] leading-normal text-neutral-600">{emotionalTrendCaption}</p>
-            </Card>
+            <EmotionalTrendCard />
           </Rise>
 
           <Rise i={1}>
