@@ -2,9 +2,9 @@
 
 import { useQuery } from '@tanstack/react-query'
 
+import { FlameIcon } from '@/components/brand/icons'
 import { BarList } from '@/components/insights/bar-list'
 import { LineChart } from '@/components/insights/line-chart'
-import { useBrowserTimeZone } from '@/components/insights/use-browser-time-zone'
 import { getApiErrorMessage } from '@/components/journal/api-error'
 import { JadenFor, JadenPerch, PLACEMENTS } from '@/components/jaden'
 import { Rise } from '@/components/motion'
@@ -12,8 +12,12 @@ import { Button } from '@/components/ui/button'
 import { Card, CardHeading } from '@/components/ui/card'
 import { MoodDot } from '@/components/ui/chip'
 import { StatCard } from '@/components/ui/data'
+import { useBrowserTimeZone } from '@/src/lib/browser-time-zone'
 import { moodLabel } from '@/src/lib/design-tokens/colors'
-import { INSIGHTS_MIN_ANALYZED_ENTRIES } from '@/src/server/api/routers/v1/insights/schema'
+import {
+  INSIGHTS_MIN_ANALYZED_ENTRIES,
+  RECENT_WINDOW_DAYS,
+} from '@/src/server/api/routers/v1/insights/schema'
 import { useTRPC } from '@/src/server/trpc/client'
 
 const weekdayFormat = new Intl.DateTimeFormat('en-US', { weekday: 'short', timeZone: 'UTC' })
@@ -25,9 +29,16 @@ const toDate = (date: string) => new Date(`${date}T00:00:00.000Z`)
 function weekChartLabel(week: { date: string; value: number | null }[]) {
   const scored = week.filter((d): d is { date: string; value: number } => d.value !== null)
   if (scored.length === 0) return 'Mood this week: no analyzed entries yet.'
+  const dayName = (date: string) => weekdayLongFormat.format(toDate(date))
+  if (scored.length === 1) {
+    return `Mood this week: ${scored[0].value} out of 100 on ${dayName(scored[0].date)}, the only day with an analyzed entry.`
+  }
   const lowest = scored.reduce((a, b) => (b.value < a.value ? b : a))
   const highest = scored.reduce((a, b) => (b.value > a.value ? b : a))
-  return `Mood this week: lowest on ${weekdayLongFormat.format(toDate(lowest.date))}, highest on ${weekdayLongFormat.format(toDate(highest.date))}.`
+  if (lowest.value === highest.value) {
+    return `Mood this week: steady at ${lowest.value} out of 100 across ${scored.length} days.`
+  }
+  return `Mood this week: lowest on ${dayName(lowest.date)}, highest on ${dayName(highest.date)}.`
 }
 
 function OverviewSkeleton() {
@@ -71,7 +82,9 @@ export function InsightsOverview() {
     enabled: timeZone !== undefined,
   })
 
-  if (query.isError) {
+  if (!query.data) {
+    // A failed background refetch keeps the last good data on screen, so only error without data.
+    if (!query.isError) return <OverviewSkeleton />
     return (
       <div role="alert" className="flex flex-col items-center gap-3 py-10 text-center">
         <p className="text-[14px] text-neutral-600">{getApiErrorMessage(query.error)}</p>
@@ -82,9 +95,8 @@ export function InsightsOverview() {
     )
   }
 
-  if (!query.data) return <OverviewSkeleton />
-
-  const { moodThisWeek, moodMix, topThemes, entriesThisMonth, analyzedCount } = query.data
+  const { moodThisWeek, moodMix, topThemes, entriesThisMonth, currentStreak, analyzedCount } =
+    query.data
 
   if (analyzedCount < INSIGHTS_MIN_ANALYZED_ENTRIES) {
     return (
@@ -130,8 +142,9 @@ export function InsightsOverview() {
           <Rise i={2} className="h-full">
             <StatCard
               className="h-full justify-center"
-              value={analyzedCount}
-              label="entries analyzed"
+              value={currentStreak}
+              label="day streak"
+              icon={<FlameIcon size={22} className="lv-flame text-amber-500" />}
             />
           </Rise>
         </div>
@@ -140,7 +153,12 @@ export function InsightsOverview() {
       <div className="grid gap-5 md:grid-cols-2">
         <Rise i={3}>
           <Card className="flex h-full flex-col gap-4">
-            <CardHeading>Mood mix</CardHeading>
+            <CardHeading>Mood mix, last {RECENT_WINDOW_DAYS} days</CardHeading>
+            {moodMix.length === 0 && (
+              <p className="text-[13px] text-neutral-600">
+                No analyzed entries in the last {RECENT_WINDOW_DAYS} days.
+              </p>
+            )}
             <ul className="flex flex-wrap gap-2">
               {moodMix.map((m) => (
                 <li
@@ -158,9 +176,11 @@ export function InsightsOverview() {
         </Rise>
         <Rise i={4}>
           <Card className="flex h-full flex-col gap-4">
-            <CardHeading>Top themes</CardHeading>
+            <CardHeading>Top themes, last {RECENT_WINDOW_DAYS} days</CardHeading>
             {topThemes.length === 0 ? (
-              <p className="text-[13px] text-neutral-600">No themes yet.</p>
+              <p className="text-[13px] text-neutral-600">
+                No themes in the last {RECENT_WINDOW_DAYS} days.
+              </p>
             ) : (
               <BarList
                 data={topThemes.map((t) => ({ label: t.label, value: t.pct }))}

@@ -4,6 +4,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useRouter } from 'next/navigation'
 import { useCallback, useEffect, useRef, useState } from 'react'
 
+import { browserTimeZone } from '@/src/lib/browser-time-zone'
 import { useTRPC } from '@/src/server/trpc/client'
 import { getApiErrorMessage } from './api-error'
 
@@ -14,8 +15,6 @@ export type SavedEntry = EntryDraft & { id: string; writtenAt: string }
 export type SaveStatus = 'idle' | 'saving' | 'saved' | 'error'
 
 const snapshot = ({ title, body, tags }: EntryDraft) => JSON.stringify([title, body, tags])
-
-const browserTimeZone = () => Intl.DateTimeFormat().resolvedOptions().timeZone
 
 /**
  * Owns an entry's draft and keeps it saved through `v1.entry.*`.

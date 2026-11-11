@@ -9,6 +9,7 @@ const mocks = vi.hoisted(() => ({
     entry: {
       findMany: vi.fn(),
       count: vi.fn(),
+      groupBy: vi.fn(),
     },
   },
 }))
@@ -37,13 +38,32 @@ function row(entryDate: string, mood: Mood, moodScore: number, themes: string[] 
 
 const NOW = new Date('2026-08-26T12:00:00Z')
 
+type CountArgs = { where: { entryDate?: unknown } }
+
+/** `entry.count` runs twice: once for this month (filtered by entryDate), once for all analyzed. */
+function mockCounts({ thisMonth = 0, analyzed = 0 }) {
+  mocks.prisma.entry.count.mockImplementation(async ({ where }: CountArgs) =>
+    where.entryDate ? thisMonth : analyzed,
+  )
+}
+
+const monthCountCalls = () =>
+  (mocks.prisma.entry.count.mock.calls as [CountArgs][])
+    .map(([args]) => args)
+    .filter((args) => args.where.entryDate)
+
+function entryDays(...days: string[]) {
+  return days.map((day) => ({ entryDate: new Date(`${day}T00:00:00.000Z`), _count: { _all: 1 } }))
+}
+
 describe('insights.overview', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     vi.useFakeTimers()
     vi.setSystemTime(NOW)
     mocks.prisma.entry.findMany.mockResolvedValue([])
-    mocks.prisma.entry.count.mockResolvedValue(0)
+    mocks.prisma.entry.groupBy.mockResolvedValue([])
+    mockCounts({})
   })
 
   afterEach(() => {
@@ -68,14 +88,25 @@ describe('insights.overview', () => {
   it('scopes to the user and excludes soft-deleted entries', async () => {
     await callerFor('user-9').overview({ timeZone: 'UTC' })
 
-    expect(mocks.prisma.entry.findMany.mock.calls[0][0].where).toEqual({
+    expect(mocks.prisma.entry.findMany.mock.calls[0][0].where).toMatchObject({
       userId: 'user-9',
       deletedAt: null,
       analysis: { isNot: null },
     })
-    expect(mocks.prisma.entry.count.mock.calls[0][0].where).toMatchObject({
+    for (const [args] of mocks.prisma.entry.count.mock.calls) {
+      expect(args.where).toMatchObject({ userId: 'user-9', deletedAt: null })
+    }
+    expect(mocks.prisma.entry.groupBy.mock.calls[0][0].where).toEqual({
       userId: 'user-9',
       deletedAt: null,
+    })
+  })
+
+  it('only loads analyzed entries from the start of the 6-month trend window', async () => {
+    await callerFor().overview({ timeZone: 'UTC' })
+
+    expect(mocks.prisma.entry.findMany.mock.calls[0][0].where.entryDate).toEqual({
+      gte: new Date('2026-03-01T00:00:00Z'),
     })
   })
 
@@ -85,6 +116,7 @@ describe('insights.overview', () => {
 
       expect(result.analyzedCount).toBe(0)
       expect(result.entriesThisMonth).toBe(0)
+      expect(result.currentStreak).toBe(0)
       expect(result.moodMix).toEqual([])
       expect(result.topThemes).toEqual([])
       expect(result.moodThisWeek.map((p) => p.date)).toEqual([
@@ -111,7 +143,7 @@ describe('insights.overview', () => {
 
   describe('with entries but no analysis', () => {
     it('counts them this month but leaves every chart empty', async () => {
-      mocks.prisma.entry.count.mockResolvedValue(5)
+      mockCounts({ thisMonth: 5 })
 
       const result = await callerFor().overview({ timeZone: 'UTC' })
 
@@ -124,7 +156,7 @@ describe('insights.overview', () => {
 
   describe('with a mix of moods', () => {
     beforeEach(() => {
-      mocks.prisma.entry.count.mockResolvedValue(6)
+      mockCounts({ thisMonth: 6, analyzed: 6 })
       mocks.prisma.entry.findMany.mockResolvedValue([
         row('2026-08-26', 'calm', 80, ['Work', 'Gratitude']),
         row('2026-08-26', 'tired', 40, ['work']),
@@ -162,26 +194,26 @@ describe('insights.overview', () => {
       ])
     })
 
-    it('counts entries per mood, most common first', async () => {
+    it('counts entries per mood over the last 30 days, most common first', async () => {
       const { moodMix } = await callerFor().overview({ timeZone: 'UTC' })
 
+      // The 'hard' entry from March is outside the 30-day window.
       expect(moodMix).toEqual([
         { mood: 'calm', count: 2 },
         { mood: 'anxious', count: 1 },
         { mood: 'grateful', count: 1 },
-        { mood: 'hard', count: 1 },
         { mood: 'tired', count: 1 },
       ])
     })
 
-    it('shares each theme across analyzed entries, counting an entry once and ignoring case', async () => {
+    it('shares each theme across the last 30 days, counting an entry once and ignoring case', async () => {
       const { topThemes } = await callerFor().overview({ timeZone: 'UTC' })
 
-      // 6 analyzed entries: Work in 3, Family in 2, Gratitude in 2
+      // 5 analyzed entries in the window: Work in 3, Family in 2, Gratitude in 2
       expect(topThemes).toEqual([
-        { label: 'Work', pct: 50 },
-        { label: 'Family', pct: 33 },
-        { label: 'Gratitude', pct: 33 },
+        { label: 'Work', pct: 60 },
+        { label: 'Family', pct: 40 },
+        { label: 'Gratitude', pct: 40 },
       ])
     })
 
@@ -190,6 +222,78 @@ describe('insights.overview', () => {
 
       expect(result.entriesThisMonth).toBe(6)
       expect(result.analyzedCount).toBe(6)
+    })
+  })
+
+  describe('recent window', () => {
+    it('includes day 30 (Jul 28) and excludes day 31 (Jul 27)', async () => {
+      mocks.prisma.entry.findMany.mockResolvedValue([
+        row('2026-07-28', 'calm', 70, ['Inside']),
+        row('2026-07-27', 'hard', 20, ['Outside']),
+      ])
+
+      const { moodMix, topThemes } = await callerFor().overview({ timeZone: 'UTC' })
+
+      expect(moodMix).toEqual([{ mood: 'calm', count: 1 }])
+      expect(topThemes).toEqual([{ label: 'Inside', pct: 100 }])
+    })
+
+    it('keeps older entries in the 6-month trend', async () => {
+      mocks.prisma.entry.findMany.mockResolvedValue([row('2026-07-01', 'hard', 20, ['Old'])])
+
+      const { emotionalTrend, topThemes } = await callerFor().overview({ timeZone: 'UTC' })
+
+      expect(emotionalTrend.find((p) => p.month === '2026-07')?.value).toBe(20)
+      expect(topThemes).toEqual([])
+    })
+  })
+
+  describe('theme labels', () => {
+    it('shows the most frequent casing', async () => {
+      mocks.prisma.entry.findMany.mockResolvedValue([
+        row('2026-08-24', 'calm', 70, ['Work']),
+        row('2026-08-25', 'calm', 70, ['work']),
+        row('2026-08-26', 'calm', 70, ['work']),
+      ])
+
+      const { topThemes } = await callerFor().overview({ timeZone: 'UTC' })
+
+      expect(topThemes).toEqual([{ label: 'work', pct: 100 }])
+    })
+
+    it('breaks casing ties the same way whatever the row order', async () => {
+      const rows = [
+        row('2026-08-25', 'calm', 70, ['work']),
+        row('2026-08-26', 'calm', 70, ['Work']),
+      ]
+
+      mocks.prisma.entry.findMany.mockResolvedValue(rows)
+      const first = await callerFor().overview({ timeZone: 'UTC' })
+      mocks.prisma.entry.findMany.mockResolvedValue([...rows].reverse())
+      const second = await callerFor().overview({ timeZone: 'UTC' })
+
+      expect(first.topThemes).toEqual([{ label: 'Work', pct: 100 }])
+      expect(second.topThemes).toEqual(first.topThemes)
+    })
+  })
+
+  describe('streak', () => {
+    it('counts consecutive days with an entry ending today', async () => {
+      mocks.prisma.entry.groupBy.mockResolvedValue(
+        entryDays('2026-08-26', '2026-08-25', '2026-08-24', '2026-08-22'),
+      )
+
+      const { currentStreak } = await callerFor().overview({ timeZone: 'UTC' })
+
+      expect(currentStreak).toBe(3)
+    })
+
+    it('keeps the streak alive from yesterday while today is still empty', async () => {
+      mocks.prisma.entry.groupBy.mockResolvedValue(entryDays('2026-08-25', '2026-08-24'))
+
+      const { currentStreak } = await callerFor().overview({ timeZone: 'UTC' })
+
+      expect(currentStreak).toBe(2)
     })
   })
 
@@ -211,7 +315,7 @@ describe('insights.overview', () => {
       const manila = await callerFor().overview({ timeZone: 'Asia/Manila' })
       expect(manila.moodThisWeek.at(-1)?.date).toBe('2026-11-01')
       expect(manila.emotionalTrend.at(-1)?.month).toBe('2026-11')
-      expect(mocks.prisma.entry.count.mock.calls[0][0].where.entryDate).toEqual({
+      expect(monthCountCalls()[0].where.entryDate).toEqual({
         gte: new Date('2026-11-01T00:00:00Z'),
         lt: new Date('2026-12-01T00:00:00Z'),
       })
@@ -219,7 +323,7 @@ describe('insights.overview', () => {
       const utc = await callerFor().overview({ timeZone: 'UTC' })
       expect(utc.moodThisWeek.at(-1)?.date).toBe('2026-10-31')
       expect(utc.emotionalTrend.at(-1)?.month).toBe('2026-10')
-      expect(mocks.prisma.entry.count.mock.calls[1][0].where.entryDate).toEqual({
+      expect(monthCountCalls()[1].where.entryDate).toEqual({
         gte: new Date('2026-10-01T00:00:00Z'),
         lt: new Date('2026-11-01T00:00:00Z'),
       })

@@ -3,7 +3,7 @@
 import { useQuery } from '@tanstack/react-query'
 
 import { LineChart } from '@/components/insights/line-chart'
-import { useBrowserTimeZone } from '@/components/insights/use-browser-time-zone'
+import { useBrowserTimeZone } from '@/src/lib/browser-time-zone'
 import { getApiErrorMessage } from '@/components/journal/api-error'
 import { Button } from '@/components/ui/button'
 import { Card, CardHeading } from '@/components/ui/card'

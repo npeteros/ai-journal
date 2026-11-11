@@ -1,18 +1,10 @@
 import { z } from 'zod'
 
 import type { PrismaClient } from '@/src/generated/prisma/client'
-
-const isValidTimeZone = (timeZone: string) => {
-  try {
-    new Intl.DateTimeFormat('en-CA', { timeZone })
-    return true
-  } catch {
-    return false
-  }
-}
+import { timeZoneSchema } from '../../schema'
 
 export const entryStatsInput = z.object({
-  timeZone: z.string().refine(isValidTimeZone, 'Invalid IANA time zone'),
+  timeZone: timeZoneSchema,
 })
 
 export type DayCount = { entryDate: string; count: number }
@@ -25,11 +17,11 @@ export type EntryStats = {
 }
 
 /** "YYYY-MM-DD" for `date` as seen in `timeZone`. */
-const toLocalDay = (date: Date, timeZone: string) =>
+export const toLocalDay = (date: Date, timeZone: string) =>
   new Intl.DateTimeFormat('en-CA', { timeZone }).format(date)
 
 /** Moves a "YYYY-MM-DD" day by `days`, with no time zone involved. */
-const shiftDay = (day: string, days: number) => {
+export const shiftDay = (day: string, days: number) => {
   const d = new Date(`${day}T00:00:00Z`)
   d.setUTCDate(d.getUTCDate() + days)
   return d.toISOString().slice(0, 10)
@@ -68,7 +60,7 @@ export function computeEntryStats(rows: DayCount[], timeZone: string, now: Date)
 }
 
 /** entryDate comes back as a Date (@db.Date) or a string, depending on the schema. */
-const toDay = (value: Date | string) =>
+export const toDay = (value: Date | string) =>
   typeof value === 'string' ? value.slice(0, 10) : value.toISOString().slice(0, 10)
 
 export async function getEntryStats(
