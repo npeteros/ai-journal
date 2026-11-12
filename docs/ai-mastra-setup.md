@@ -13,6 +13,7 @@ How the Mastra AI layer is wired up, how a call is traced, logged and rate-limit
 - [Layout](#layout)
 - [The Mastra Instance](#the-mastra-instance)
 - [Agents, Tools and Workflows](#agents-tools-and-workflows)
+- [Insight Reports](#insight-reports)
 - [Dev Chat Demo](#dev-chat-demo)
 - [Observability](#observability)
 - [Usage Logging and Rate Limiting](#usage-logging-and-rate-limiting)
@@ -69,6 +70,18 @@ These are starter examples from #14, and they serve as the reference pattern.
 - **`weather-workflow`:** runs two steps.
   1. `fetch-weather` fetches the forecast.
   2. `plan-activities` streams activity suggestions from `weatherAgent`. It passes the workflow's `requestContext` into `agent.stream()`, because Mastra doesn't pass it on automatically. If the agent call is blocked (a tripwire), the step throws so the workflow fails visibly.
+
+## Insight Reports
+
+`insightsAgent` turns analyzed journal-entry summaries and themes into a stored report of recurring themes, gentle growth suggestions, and an optional trend caption. It is registered in `src/mastra/index.ts` and has `aiUsageProcessor` in both processor arrays.
+
+- `InsightReportService` reads only live, user-owned entries that already have `EntryAnalysis` data. It uses UTC calendar days: the current 30-day period and the immediately preceding 30-day period.
+- Reports require at least five analyzed entries in the current period. The model receives summaries and themes, never raw journal bodies, and must cite the supplied entry IDs for every theme and suggestion. Invalid or foreign entry IDs are discarded before persistence.
+- `INSIGHT_REPORT_MAX_SOURCE_ENTRIES` limits model context (default `50`, never less than five). When the period has more entries, the service selects the most recent entries and keeps them in oldest-to-newest order; stored `entryCount` and valid source references describe that selected input. Previous-period theme counts remain aggregated across the whole previous period.
+- `INSIGHT_REPORT_GENERATION_TIMEOUT_MS` limits the model run (default `10` minutes). It is clamped to at least one minute below the 15-minute `InsightReportLease`; source loading also consumes that same deadline, so the service does not start a model call after the safety margin. Mastra aborts timed-out runs and forwards cancellation to the provider, but no application timeout can guarantee that a provider has not already incurred partial billing after accepting a request.
+- `InsightReportLease` plus a PostgreSQL advisory transaction lock limits each user to one active generation. A successful report starts a 24-hour refresh cooldown.
+- `v1.insights.report` returns only the authenticated user's latest valid report. `v1.insights.refresh` runs `insightsWorkflow` with the session-derived request context.
+- There is no scheduled refresh yet. A weekly external scheduler needs a deployment/auth decision before it is added; reports are refreshed from the signed-in UI for now.
 
 ## Dev Chat Demo
 

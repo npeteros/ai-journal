@@ -13,18 +13,20 @@ datasource db {
 }
 
 model User {
-  id            String       @id
-  name          String
-  email         String
-  emailVerified Boolean      @default(false)
-  image         String?
-  createdAt     DateTime     @default(now())
-  updatedAt     DateTime     @updatedAt
-  sessions      Session[]
-  accounts      Account[]
-  aiUsageLogs   AiUsageLog[]
-  entries       Entry[]
-  tags          Tag[]
+  id                 String              @id
+  name               String
+  email              String
+  emailVerified      Boolean             @default(false)
+  image              String?
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+  sessions           Session[]
+  accounts           Account[]
+  aiUsageLogs        AiUsageLog[]
+  entries            Entry[]
+  tags               Tag[]
+  insightReports     InsightReport[]
+  insightReportLease InsightReportLease?
 
   @@unique([email])
   @@map("user")
@@ -137,6 +139,33 @@ model EntryAnalysis {
   analyzedAt    DateTime @db.Timestamptz
 
   @@map("entry_analysis")
+}
+
+model InsightReport {
+  id                String   @id @default(uuid()) @db.Uuid
+  userId            String
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  periodStart       DateTime @db.Date
+  periodEnd         DateTime @db.Date
+  recurringThemes   Json
+  growthSuggestions Json
+  trendCaption      String?
+  entryCount        Int
+  model             String
+  createdAt         DateTime @default(now()) @db.Timestamptz
+
+  @@index([userId, createdAt])
+  @@map("insight_report")
+}
+
+/// One fenced, expiring refresh lease per user. It prevents concurrent report generations.
+model InsightReportLease {
+  userId    String   @id
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token     String   @db.Uuid
+  expiresAt DateTime @db.Timestamptz
+
+  @@map("insight_report_lease")
 }
 
 model Tag {

@@ -22,6 +22,7 @@ vi.mock('../agents/entry-title-agent', () => ({ entryTitleAgent: { id: 'entry-ti
 vi.mock('../agents/entry-analysis-agent', () => ({
   entryAnalysisAgent: { id: 'entry-analysis-agent' },
 }))
+vi.mock('../agents/insights-agent', () => ({ insightsAgent: { id: 'insights-agent' } }))
 vi.mock('../agents/journal-companion-agent', () => ({
   journalCompanionAgent: { id: 'journal-companion-agent' },
 }))
@@ -44,16 +45,18 @@ vi.mock('../tools/search-entries-tool', () => ({ searchEntriesTool: { id: 'searc
 vi.mock('../workflows/entry-analysis-workflow', () => ({
   entryAnalysisWorkflow: { id: 'entry-analysis-workflow' },
 }))
+vi.mock('../workflows/insights-workflow', () => ({ insightsWorkflow: { id: 'insights-workflow' } }))
 
 await import('../index')
 
 describe('Mastra registration', () => {
-  it('registers Jaden and both journal tools without weather starter code', () => {
+  it('registers the journal and insights AI resources without weather starter code', () => {
     expect(mocks.config).toMatchObject({
       agents: {
         journalCompanionAgent: { id: 'journal-companion-agent' },
         entryTitleAgent: { id: 'entry-title-agent' },
         entryAnalysisAgent: { id: 'entry-analysis-agent' },
+        insightsAgent: { id: 'insights-agent' },
       },
       tools: {
         searchEntriesTool: { id: 'search-entries' },
@@ -73,6 +76,7 @@ describe('Mastra registration', () => {
     })
     expect(mocks.config).toHaveProperty('workflows', {
       entryAnalysisWorkflow: { id: 'entry-analysis-workflow' },
+      insightsWorkflow: { id: 'insights-workflow' },
     })
   })
 })
