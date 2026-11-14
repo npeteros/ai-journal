@@ -11,7 +11,12 @@ import { cn } from 'cn'
 import { JadenFor, JadenPerch, PLACEMENTS, belowEdge, heightFor } from '@/components/jaden'
 import { SPRING } from '@/components/motion'
 import { AiLabel, Orb } from '@/components/ui/ai'
-import { CHAT_API, CHAT_RATE_LIMITED_CODE, CHAT_RATE_LIMITED_MESSAGE } from '@/src/lib/chat'
+import {
+  CHAT_API,
+  CHAT_CONTEXT_MESSAGES,
+  CHAT_RATE_LIMITED_CODE,
+  CHAT_RATE_LIMITED_MESSAGE,
+} from '@/src/lib/chat'
 import { collectEntryRefs, splitCitations, type EntryRef } from './citations'
 
 const STARTER_QUESTIONS = [
@@ -24,10 +29,12 @@ const STARTER_QUESTIONS = [
 // How far Jaden rises above the chat input's top edge.
 const PERCH_CLEARANCE = heightFor(PLACEMENTS.chat.size) - belowEdge(PLACEMENTS.chat.size)
 
-// Earlier turns live in the agent's memory, so only the new message is sent.
+// Chat is stateless: nothing is stored server-side, so recent turns are sent with each message.
 const transport = new DefaultChatTransport<UIMessage>({
   api: CHAT_API,
-  prepareSendMessagesRequest: ({ messages }) => ({ body: { message: messages.at(-1) } }),
+  prepareSendMessagesRequest: ({ messages }) => ({
+    body: { messages: messages.slice(-CHAT_CONTEXT_MESSAGES) },
+  }),
 })
 
 const bubbleIn = (from: 'left' | 'right') => ({
@@ -58,13 +65,10 @@ function isRateLimited(error: Error | undefined): string | null {
 }
 
 /** "Chat with your journal": streams answers from the journal companion agent. */
-export function JournalChat({ initialMessages }: { initialMessages: UIMessage[] }) {
+export function JournalChat() {
   const [draft, setDraft] = useState('')
   const endRef = useRef<HTMLDivElement>(null)
-  const { messages, sendMessage, regenerate, clearError, status, error } = useChat({
-    messages: initialMessages,
-    transport,
-  })
+  const { messages, sendMessage, regenerate, clearError, status, error } = useChat({ transport })
 
   const busy = status === 'submitted' || status === 'streaming'
   const refs = useMemo(() => collectEntryRefs(messages), [messages])

@@ -7,7 +7,7 @@ describe('journal companion agent', () => {
   it('registers Jaden with journal tools, memory, and both AI usage processors', async () => {
     expect(journalCompanionAgent.id).toBe(JOURNAL_COMPANION_AGENT_ID)
     expect(journalCompanionAgent.name).toBe('Jaden')
-    expect(journalCompanionAgent.hasOwnMemory()).toBe(true)
+    expect(journalCompanionAgent.hasOwnMemory()).toBe(false)
     expect(Object.keys(await journalCompanionAgent.listTools())).toEqual([
       'searchEntriesTool',
       'getEntryTool',

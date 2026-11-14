@@ -1,5 +1,4 @@
 import { Agent } from '@mastra/core/agent'
-import { Memory } from '@mastra/memory'
 import { aiUsageProcessor } from '../guardrails/AiUsageProcessor'
 import { getEntryTool } from '../tools/get-entry-tool'
 import { searchEntriesTool } from '../tools/search-entries-tool'
@@ -21,7 +20,6 @@ Keep responses compassionate, grounded, and concise.`,
   model: 'openai/gpt-5-mini',
   defaultOptions: { maxSteps: 4 },
   tools: { searchEntriesTool, getEntryTool },
-  memory: new Memory(),
   inputProcessors: [aiUsageProcessor],
   outputProcessors: [aiUsageProcessor],
 })
