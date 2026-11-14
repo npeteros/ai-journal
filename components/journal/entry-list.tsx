@@ -33,25 +33,38 @@ function localDateKey(d: Date) {
   return `${d.getFullYear()}-${mm}-${dd}`
 }
 
-const groupDateFormat = new Intl.DateTimeFormat('en-US', {
-  weekday: 'long',
+const monthFormat = new Intl.DateTimeFormat('en-US', { month: 'long', timeZone: 'UTC' })
+const monthYearFormat = new Intl.DateTimeFormat('en-US', {
   month: 'long',
-  day: 'numeric',
   year: 'numeric',
   timeZone: 'UTC',
 })
 
 /**
- * "Today", "Yesterday", then the date. `entryDate` is a date-only value (UTC midnight).
- * It's an ISO string when fetched over HTTP, but a `Date` when it comes from the RSC prefetch
- * (the server caller skips JSON, and RSC serialization keeps Dates), so accept both.
+ * Buckets entries into "Today", "Yesterday", "Earlier this week" (weeks start Monday),
+ * "Earlier this month", then one bucket per month ("October", or "October 2025" for past years).
+ * Cards show their own date, so day-level headers would only repeat it.
+ *
+ * `entryDate` is a date-only value (UTC midnight). It's an ISO string when fetched over HTTP,
+ * but a `Date` when it comes from the RSC prefetch (the server caller skips JSON, and RSC
+ * serialization keeps Dates), so accept both. Keys are YYYY-MM-DD, so they compare as strings.
  */
 function dateLabel(entryDate: string | Date, now: Date) {
   const key = new Date(entryDate).toISOString().slice(0, 10)
   const yesterday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1)
-  if (key === localDateKey(now)) return 'Today'
+  const daysSinceMonday = (now.getDay() + 6) % 7
+  const weekStart = new Date(now.getFullYear(), now.getMonth(), now.getDate() - daysSinceMonday)
+  const todayKey = localDateKey(now)
+
+  if (key === todayKey) return 'Today'
   if (key === localDateKey(yesterday)) return 'Yesterday'
-  return groupDateFormat.format(new Date(`${key}T00:00:00.000Z`))
+  if (key >= localDateKey(weekStart) && key < todayKey) return 'Earlier this week'
+  if (key.slice(0, 7) === todayKey.slice(0, 7)) return 'Earlier this month'
+
+  const date = new Date(`${key}T00:00:00.000Z`)
+  return date.getUTCFullYear() === now.getFullYear()
+    ? monthFormat.format(date)
+    : monthYearFormat.format(date)
 }
 
 /**
