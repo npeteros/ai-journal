@@ -3,7 +3,9 @@
 import { AnimatePresence, motion } from 'motion/react'
 import { Plus } from 'lucide-react'
 
-import { JadenFor, JadenPerch, PLACEMENTS } from '@/components/jaden'
+import { cn } from 'cn'
+
+import { JadenFor, JadenPerch, PLACEMENTS, moodForScore } from '@/components/jaden'
 import { Rise } from '@/components/motion'
 import { TypingIndicator } from '@/components/ui/ai'
 import { Card, SectionLabel } from '@/components/ui/card'
@@ -13,19 +15,26 @@ type AiRailProps = {
   suggestedTags: string[]
   onAcceptTag: (tag: string) => void
   summary?: string[]
+  /** The entry's analyzed mood score (0–100); sets Jaden's expression. */
+  moodScore?: number | null
 }
 
 /** "For this entry": AI mood detection, suggested tags and a summary. */
-export function AiRail({ moodLabel, suggestedTags, onAcceptTag, summary }: AiRailProps) {
+export function AiRail({ moodLabel, suggestedTags, onAcceptTag, summary, moodScore }: AiRailProps) {
+  const hasMood = moodScore != null
   return (
     <aside aria-label="For this entry" className="flex w-full shrink-0 flex-col gap-4 lg:w-[300px]">
       <SectionLabel className="text-[12px] tracking-[0.06em]">For this entry</SectionLabel>
 
       <Rise i={0} className="relative">
-        {/* Jaden nods along on mobile; the desktop rail stays quiet */}
-        <div className="lg:hidden">
+        {/* Jaden nods along on mobile; on desktop he only appears once he can react to the entry's mood */}
+        <div className={cn(!hasMood && 'lg:hidden')}>
           <JadenPerch width={PLACEMENTS.editor.size} position={{ right: -8 }}>
-            <JadenFor placement="editor" />
+            {hasMood ? (
+              <JadenFor placement="editor" mood={moodForScore(moodScore)} />
+            ) : (
+              <JadenFor placement="editor" />
+            )}
           </JadenPerch>
         </div>
         <Card className="flex flex-col gap-2.5 rounded-[14px] p-4 lg:p-4">

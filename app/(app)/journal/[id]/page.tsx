@@ -23,6 +23,7 @@ const loadEntry = cache(async (id: string) => {
       body: entry.body,
       writtenAt: new Date(entry.writtenAt).toISOString(),
       tags: entry.tags.map((tag) => tag.name),
+      moodScore: entry.analysis?.moodScore ?? null,
     }
   } catch (error) {
     const code = errorCode(error)
@@ -41,11 +42,11 @@ export async function generateMetadata(props: PageProps<'/journal/[id]'>): Promi
 
 export default async function EntryPage(props: PageProps<'/journal/[id]'>) {
   const { id } = await props.params
-  const entry = await loadEntry(id)
+  const { moodScore, ...entry } = await loadEntry(id)
 
   return (
     <Page className="lg:pt-8">
-      <EntryEditor entry={entry} />
+      <EntryEditor entry={entry} moodScore={moodScore} />
     </Page>
   )
 }

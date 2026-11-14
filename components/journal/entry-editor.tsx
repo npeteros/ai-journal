@@ -15,12 +15,14 @@ import { useEntryAutosave, type SavedEntry } from './use-entry-autosave'
 type EntryEditorProps = {
   /** Existing entry, or undefined for a new one */
   entry?: SavedEntry
+  /** The entry's analyzed mood score (0–100), if it has been analyzed. */
+  moodScore?: number | null
 }
 
 const NO_SUGGESTIONS: string[] = []
 
 /** Writing surface: title, auto-growing body, tags; AI rail beside it (below on mobile). */
-export function EntryEditor({ entry }: EntryEditorProps) {
+export function EntryEditor({ entry, moodScore }: EntryEditorProps) {
   const { draft, update, status, error, entryId, writtenAt, deleting, save, flush, remove } =
     useEntryAutosave(entry)
   const { title, body, tags } = draft
@@ -230,7 +232,7 @@ export function EntryEditor({ entry }: EntryEditorProps) {
           </div>
         </div>
 
-        <AiRail suggestedTags={NO_SUGGESTIONS} onAcceptTag={addTag} />
+        <AiRail suggestedTags={NO_SUGGESTIONS} onAcceptTag={addTag} moodScore={moodScore} />
       </div>
     </div>
   )

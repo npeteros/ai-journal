@@ -9,6 +9,7 @@ export {
   SIZES,
   belowEdge,
   heightFor,
+  moodForScore,
   resolveSize,
   type JadenEntrance,
   type JadenGesture,
