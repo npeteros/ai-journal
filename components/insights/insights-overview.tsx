@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query'
 
 import { FlameIcon } from '@/components/brand/icons'
 import { BarList } from '@/components/insights/bar-list'
+import { InsightTrendCaption } from '@/components/insights/insight-report'
 import { LineChart } from '@/components/insights/line-chart'
 import { getApiErrorMessage } from '@/components/journal/api-error'
 import { JadenFor, JadenPerch, PLACEMENTS } from '@/components/jaden'
@@ -128,6 +129,7 @@ export function InsightsOverview() {
               points
               label={weekChartLabel(moodThisWeek)}
             />
+            <InsightTrendCaption />
           </Card>
         </Rise>
 

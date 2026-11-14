@@ -13,18 +13,19 @@ datasource db {
 }
 
 model User {
-  id            String       @id
+  id            String         @id
   name          String
   email         String
-  emailVerified Boolean      @default(false)
+  emailVerified Boolean        @default(false)
   image         String?
-  createdAt     DateTime     @default(now())
-  updatedAt     DateTime     @updatedAt
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
   sessions      Session[]
   accounts      Account[]
   aiUsageLogs   AiUsageLog[]
   entries       Entry[]
   tags          Tag[]
+  insightReport InsightReport?
 
   @@unique([email])
   @@map("user")
@@ -137,6 +138,27 @@ model EntryAnalysis {
   analyzedAt    DateTime @db.Timestamptz
 
   @@map("entry_analysis")
+}
+
+model InsightReport {
+  id                String    @id @default(uuid()) @db.Uuid
+  userId            String    @unique
+  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  periodStart       DateTime? @db.Date
+  periodEnd         DateTime? @db.Date
+  recurringThemes   Json      @default("[]")
+  growthSuggestions Json      @default("[]")
+  trendCaption      String?
+  entryCount        Int       @default(0)
+  model             String?
+  generatedAt       DateTime? @db.Timestamptz
+  generatingAt      DateTime? @db.Timestamptz
+  lastRefreshAt     DateTime? @db.Timestamptz
+  lastError         String?
+  createdAt         DateTime  @default(now()) @db.Timestamptz
+  updatedAt         DateTime  @updatedAt @db.Timestamptz
+
+  @@map("insight_report")
 }
 
 model Tag {
