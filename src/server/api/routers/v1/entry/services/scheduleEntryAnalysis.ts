@@ -20,7 +20,9 @@ async function runEntryAnalysisWorkflow(
   log: IMastraLogger,
 ) {
   try {
-    const run = await mastra.getWorkflowById(ENTRY_ANALYSIS_WORKFLOW_ID).createRun()
+    const run = await mastra
+      .getWorkflowById<'entryAnalysisWorkflow'>(ENTRY_ANALYSIS_WORKFLOW_ID)
+      .createRun()
     // Awaited (not startAsync) so `after()` keeps the function alive through the debounce
     // sleep and the model call on serverless hosts.
     const result = await run.start({

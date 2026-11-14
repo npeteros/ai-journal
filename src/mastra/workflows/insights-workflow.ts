@@ -24,21 +24,21 @@ const outputSchema = z.object({
 export const generateInsightReportStep = createStep({
   id: 'generate-insight-report',
   description: 'Generates and stores a user-scoped recurring themes and growth report',
-  inputSchema: z.object({}),
+  inputSchema: z.object({ claimedAt: z.date() }),
   outputSchema,
-  execute: async ({ requestContext }) => {
+  execute: async ({ inputData, requestContext }) => {
     const userId = requestContext.get(USER_ID_KEY)
     if (typeof userId !== 'string') {
       throw new Error('Insights workflow requires a user RequestContext')
     }
-    return { status: await insightReportService.refresh(userId) }
+    return { status: await insightReportService.generateClaimedReport(userId, inputData.claimedAt) }
   },
 })
 
 export const insightsWorkflow = createWorkflow({
   id: INSIGHTS_WORKFLOW_ID,
   description: 'Generates a stored recurring-themes and growth-suggestions report',
-  inputSchema: z.object({}),
+  inputSchema: z.object({ claimedAt: z.date() }),
   outputSchema,
 })
   .then(generateInsightReportStep)

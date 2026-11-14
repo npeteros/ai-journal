@@ -1,4 +1,3 @@
-import { randomUUID } from 'node:crypto'
 import type { IMastraLogger } from '@mastra/core/logger'
 import { isMastraTimeoutError } from '@mastra/core/loop'
 import prisma from '@/src/lib/prisma'
@@ -17,11 +16,14 @@ import { filterOwnedInsightReport, type InsightReportData } from '../report-sche
 
 export const INSIGHT_REPORT_MIN_ANALYZED_ENTRIES = 5
 export const INSIGHT_REPORT_PERIOD_DAYS = 30
-export const INSIGHT_REPORT_COOLDOWN_MS = 24 * 60 * 60 * 1000
-export const INSIGHT_REPORT_LEASE_MS = 15 * 60 * 1000
-export const INSIGHT_REPORT_LEASE_SAFETY_MS = 60 * 1000
+export const INSIGHT_REPORT_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000
+export const INSIGHT_REPORT_MIN_NEW_ENTRIES = 3
+export const INSIGHT_REPORT_MANUAL_REFRESH_COOLDOWN_MS = 24 * 60 * 60 * 1000
+export const INSIGHT_REPORT_LOCK_TIMEOUT_MS = 5 * 60 * 1000
+// Leave two minutes between an aborted model call and stale-lock recovery on Vercel Hobby.
+export const INSIGHT_REPORT_LOCK_SAFETY_MS = 2 * 60 * 1000
 export const INSIGHT_REPORT_DEFAULT_MAX_SOURCE_ENTRIES = 50
-export const INSIGHT_REPORT_DEFAULT_GENERATION_TIMEOUT_MS = 10 * 60 * 1000
+export const INSIGHT_REPORT_DEFAULT_GENERATION_TIMEOUT_MS = 3 * 60 * 1000
 
 export type InsightReportStatus =
   | 'generated'
@@ -46,7 +48,7 @@ export type InsightSource = InsightSourceEntry
 export type InsightReportLimits = {
   /** Most-recent analyzed entries included in the model prompt, kept oldest-to-newest. */
   maxSourceEntries: number
-  /** Hard Mastra model-run deadline; always shorter than the database lease. */
+  /** Hard model deadline, always shorter than the five-minute stale-lock timeout. */
   generationTimeoutMs: number
 }
 
@@ -60,7 +62,13 @@ export type InsightReportRecord = InsightReportData & {
   periodEnd: Date
   entryCount: number
   model: string
-  createdAt: Date
+  generatedAt: Date
+}
+
+export type InsightReportState = {
+  generatedAt: Date | null
+  generatingAt: Date | null
+  lastRefreshAt: Date | null
 }
 
 export type InsightReportAgentResult = { object?: unknown; tripwire?: TripwireInfo }
@@ -72,11 +80,21 @@ export type InsightReportAgentCall = (input: {
 }) => Promise<InsightReportAgentResult>
 
 export type InsightReportRepository = {
-  claimRefresh(
+  findReport(userId: string): Promise<InsightReportState | null>
+  countAnalyzedEntries(
     userId: string,
-    token: string,
-    now: Date,
-  ): Promise<'claimed' | 'cooldown' | 'in_progress'>
+    windows: InsightReportWindows,
+    analyzedSince?: Date,
+  ): Promise<number>
+  ensureReport(userId: string): Promise<void>
+  claimGeneration(input: {
+    userId: string
+    claimedAt: Date
+    lockExpiresBefore: Date
+    manualRefreshAfter?: Date
+    isManual: boolean
+  }): Promise<boolean>
+  activateGeneration(userId: string, claimedAt: Date, executionAt: Date): Promise<boolean>
   loadSources(
     userId: string,
     windows: InsightReportWindows,
@@ -84,9 +102,15 @@ export type InsightReportRepository = {
     current: InsightSource[]
     previousThemes: PreviousThemeCount[]
   }>
-  saveReport(userId: string, token: string, report: InsightReportRecord): Promise<boolean>
-  releaseRefresh(userId: string, token: string, now: Date): Promise<void>
+  saveReport(userId: string, claimedAt: Date, report: InsightReportRecord): Promise<boolean>
+  failGeneration(userId: string, claimedAt: Date, error: string | null): Promise<void>
 }
+
+export type InsightReportStartResult =
+  | { status: 'claimed'; claimedAt: Date }
+  | { status: 'not_enough_entries'; missingEntries: number }
+  | { status: 'not_stale' | 'refresh_in_progress' }
+  | { status: 'cooldown'; nextManualRefreshAt: Date }
 
 function utcDay(value: Date): Date {
   return new Date(Date.UTC(value.getUTCFullYear(), value.getUTCMonth(), value.getUTCDate()))
@@ -103,10 +127,7 @@ function positiveInteger(value: string | undefined, fallback: number): number {
   return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : fallback
 }
 
-/**
- * Runtime-configurable safeguards. The source limit never drops below the evidence threshold,
- * and the model deadline always leaves time for the lease cleanup to complete.
- */
+/** Vercel Hobby permits five-minute functions; reserve two minutes for stale-lock recovery. */
 export function insightReportLimits(
   env: InsightReportEnvironment = {
     INSIGHT_REPORT_MAX_SOURCE_ENTRIES: process.env.INSIGHT_REPORT_MAX_SOURCE_ENTRIES,
@@ -120,7 +141,7 @@ export function insightReportLimits(
       INSIGHT_REPORT_DEFAULT_MAX_SOURCE_ENTRIES,
     ),
   )
-  const maximumTimeout = INSIGHT_REPORT_LEASE_MS - INSIGHT_REPORT_LEASE_SAFETY_MS
+  const maximumTimeout = INSIGHT_REPORT_LOCK_TIMEOUT_MS - INSIGHT_REPORT_LOCK_SAFETY_MS
   const generationTimeoutMs = Math.min(
     maximumTimeout,
     positiveInteger(
@@ -174,31 +195,58 @@ function previousThemeCounts(
 }
 
 export const prismaInsightReportRepository: InsightReportRepository = {
-  async claimRefresh(userId, token, now) {
-    const cooldownStart = new Date(now.getTime() - INSIGHT_REPORT_COOLDOWN_MS)
-    const leaseExpiresAt = new Date(now.getTime() + INSIGHT_REPORT_LEASE_MS)
-
-    return prisma.$transaction(async (tx) => {
-      // This lock serializes lease claims without holding a transaction open during model generation.
-      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`insight-report:${userId}`}))`
-
-      const latest = await tx.insightReport.findFirst({
-        where: { userId },
-        orderBy: { createdAt: 'desc' },
-        select: { createdAt: true },
-      })
-      if (latest && latest.createdAt > cooldownStart) return 'cooldown'
-
-      const existingLease = await tx.insightReportLease.findUnique({ where: { userId } })
-      if (existingLease && existingLease.expiresAt > now) return 'in_progress'
-
-      await tx.insightReportLease.upsert({
-        where: { userId },
-        create: { userId, token, expiresAt: leaseExpiresAt },
-        update: { token, expiresAt: leaseExpiresAt },
-      })
-      return 'claimed'
+  async findReport(userId) {
+    return prisma.insightReport.findUnique({
+      where: { userId },
+      select: { generatedAt: true, generatingAt: true, lastRefreshAt: true },
     })
+  },
+
+  async countAnalyzedEntries(userId, windows, analyzedSince) {
+    return prisma.entry.count({
+      where: {
+        userId,
+        deletedAt: null,
+        entryDate: { gte: windows.currentStart, lt: windows.currentEndExclusive },
+        analysis: analyzedSince ? { is: { analyzedAt: { gt: analyzedSince } } } : { isNot: null },
+      },
+    })
+  },
+
+  async ensureReport(userId) {
+    await prisma.insightReport.upsert({ where: { userId }, create: { userId }, update: {} })
+  },
+
+  async claimGeneration({ userId, claimedAt, lockExpiresBefore, manualRefreshAfter, isManual }) {
+    const claimed = await prisma.insightReport.updateMany({
+      where: {
+        userId,
+        AND: [
+          { OR: [{ generatingAt: null }, { generatingAt: { lt: lockExpiresBefore } }] },
+          ...(isManual
+            ? [
+                {
+                  OR: [{ lastRefreshAt: null }, { lastRefreshAt: { lt: manualRefreshAfter } }],
+                },
+              ]
+            : []),
+        ],
+      },
+      data: {
+        generatingAt: claimedAt,
+        ...(isManual ? { lastRefreshAt: claimedAt } : {}),
+      },
+    })
+    return claimed.count === 1
+  },
+
+  async activateGeneration(userId, claimedAt, executionAt) {
+    const activated = await prisma.insightReport.updateMany({
+      // Transitioning the claim atomically admits exactly one worker for this scheduled run.
+      where: { userId, generatingAt: claimedAt },
+      data: { generatingAt: executionAt },
+    })
+    return activated.count === 1
   },
 
   async loadSources(userId, windows) {
@@ -216,7 +264,6 @@ export const prismaInsightReportRepository: InsightReportRepository = {
       },
       orderBy: [{ entryDate: 'asc' }, { id: 'asc' }],
     })
-
     const current = rows
       .filter(({ entryDate }) => entryDate >= windows.currentStart)
       .flatMap((entry) =>
@@ -240,36 +287,30 @@ export const prismaInsightReportRepository: InsightReportRepository = {
     return { current, previousThemes: previousThemeCounts(previous) }
   },
 
-  async saveReport(userId, token, report) {
-    return prisma.$transaction(async (tx) => {
-      // A late worker cannot save after its lease expires or a newer worker takes ownership.
-      const released = await tx.insightReportLease.updateMany({
-        where: { userId, token, expiresAt: { gt: report.createdAt } },
-        data: { expiresAt: report.createdAt },
-      })
-      if (released.count !== 1) return false
-
-      await tx.insightReport.create({
-        data: {
-          userId,
-          periodStart: report.periodStart,
-          periodEnd: report.periodEnd,
-          recurringThemes: report.recurringThemes,
-          growthSuggestions: report.growthSuggestions,
-          trendCaption: report.trendCaption,
-          entryCount: report.entryCount,
-          model: report.model,
-          createdAt: report.createdAt,
-        },
-      })
-      return true
+  async saveReport(userId, claimedAt, report) {
+    const saved = await prisma.insightReport.updateMany({
+      // A worker that lost its stale lock cannot overwrite a newer report.
+      where: { userId, generatingAt: claimedAt },
+      data: {
+        periodStart: report.periodStart,
+        periodEnd: report.periodEnd,
+        recurringThemes: report.recurringThemes,
+        growthSuggestions: report.growthSuggestions,
+        trendCaption: report.trendCaption,
+        entryCount: report.entryCount,
+        model: report.model,
+        generatedAt: report.generatedAt,
+        generatingAt: null,
+        lastError: null,
+      },
     })
+    return saved.count === 1
   },
 
-  async releaseRefresh(userId, token, now) {
-    await prisma.insightReportLease.updateMany({
-      where: { userId, token },
-      data: { expiresAt: now },
+  async failGeneration(userId, claimedAt, error) {
+    await prisma.insightReport.updateMany({
+      where: { userId, generatingAt: claimedAt },
+      data: { generatingAt: null, lastError: error },
     })
   },
 }
@@ -292,7 +333,12 @@ const callInsightsAgent: InsightReportAgentCall = async ({
   return { object: result.object, tripwire: result.tripwire }
 }
 
-/** Generates a stored, user-scoped insight report. Every non-generated outcome releases its lease. */
+function failureCode(error: unknown): string {
+  if (isMastraTimeoutError(error)) return 'timed_out'
+  return 'generation_failed'
+}
+
+/** Stores a single user-scoped report, preserving its last successful content during regeneration. */
 export class InsightReportService {
   constructor(
     private readonly callAgent: InsightReportAgentCall = callInsightsAgent,
@@ -302,39 +348,132 @@ export class InsightReportService {
     private readonly limits: InsightReportLimits = insightReportLimits(),
   ) {}
 
-  async refresh(userId: string): Promise<InsightReportStatus> {
+  async isStale(userId: string): Promise<boolean> {
     const now = this.now()
-    const token = randomUUID()
-    let claimed = false
-    let generationTimeoutMs = this.limits.generationTimeoutMs
+    const windows = insightReportWindows(now)
+    const report = await this.repository.findReport(userId)
+    if (!report?.generatedAt) {
+      return (
+        (await this.repository.countAnalyzedEntries(userId, windows)) >=
+        INSIGHT_REPORT_MIN_ANALYZED_ENTRIES
+      )
+    }
+    if (report.generatedAt.getTime() > now.getTime() - INSIGHT_REPORT_MAX_AGE_MS) return false
+    return (
+      (await this.repository.countAnalyzedEntries(userId, windows, report.generatedAt)) >=
+      INSIGHT_REPORT_MIN_NEW_ENTRIES
+    )
+  }
+
+  async remainingEntries(userId: string): Promise<number> {
+    const analyzedCount = await this.repository.countAnalyzedEntries(
+      userId,
+      insightReportWindows(this.now()),
+    )
+    return Math.max(0, INSIGHT_REPORT_MIN_ANALYZED_ENTRIES - analyzedCount)
+  }
+
+  async tryStart(
+    userId: string,
+    options: { manual?: boolean } = {},
+  ): Promise<InsightReportStartResult> {
+    const now = this.now()
+    const isManual = options.manual === true
+    if (!isManual && !(await this.isStale(userId))) {
+      const report = await this.repository.findReport(userId)
+      if (!report?.generatedAt) {
+        return { status: 'not_enough_entries', missingEntries: await this.remainingEntries(userId) }
+      }
+      return { status: 'not_stale' }
+    }
+
+    if (isManual) {
+      const analyzedCount = await this.repository.countAnalyzedEntries(
+        userId,
+        insightReportWindows(now),
+      )
+      if (analyzedCount < INSIGHT_REPORT_MIN_ANALYZED_ENTRIES) {
+        return {
+          status: 'not_enough_entries',
+          missingEntries: INSIGHT_REPORT_MIN_ANALYZED_ENTRIES - analyzedCount,
+        }
+      }
+    }
+
+    await this.repository.ensureReport(userId)
+    const claimed = await this.repository.claimGeneration({
+      userId,
+      claimedAt: now,
+      lockExpiresBefore: new Date(now.getTime() - INSIGHT_REPORT_LOCK_TIMEOUT_MS),
+      manualRefreshAfter: new Date(now.getTime() - INSIGHT_REPORT_MANUAL_REFRESH_COOLDOWN_MS),
+      isManual,
+    })
+    if (claimed) return { status: 'claimed', claimedAt: now }
+
+    const report = await this.repository.findReport(userId)
+    if (
+      isManual &&
+      report?.lastRefreshAt &&
+      report.lastRefreshAt.getTime() >= now.getTime() - INSIGHT_REPORT_MANUAL_REFRESH_COOLDOWN_MS
+    ) {
+      return {
+        status: 'cooldown',
+        nextManualRefreshAt: new Date(
+          report.lastRefreshAt.getTime() + INSIGHT_REPORT_MANUAL_REFRESH_COOLDOWN_MS,
+        ),
+      }
+    }
+    return { status: 'refresh_in_progress' }
+  }
+
+  async generateClaimedReport(userId: string, claimedAt: Date): Promise<InsightReportStatus> {
+    const now = this.now()
+    const claimedReport = await this.repository.findReport(userId)
+    if (
+      !claimedReport?.generatingAt ||
+      claimedReport.generatingAt.getTime() !== claimedAt.getTime() ||
+      claimedAt.getTime() < now.getTime() - INSIGHT_REPORT_LOCK_TIMEOUT_MS
+    ) {
+      this.log.warn('Insight report generation skipped without an active claim', { userId })
+      return 'failed'
+    }
+
+    const minimumSources = claimedReport.generatedAt
+      ? INSIGHT_REPORT_MIN_NEW_ENTRIES
+      : INSIGHT_REPORT_MIN_ANALYZED_ENTRIES
+    // A distinct value is required even when the worker starts in the same millisecond as its claim.
+    const executionAt = new Date(Math.max(this.now().getTime(), claimedAt.getTime() + 1))
+    const generationDeadline = new Date(
+      claimedAt.getTime() + INSIGHT_REPORT_LOCK_TIMEOUT_MS - INSIGHT_REPORT_LOCK_SAFETY_MS,
+    )
 
     try {
-      const claim = await this.repository.claimRefresh(userId, token, now)
-      if (claim === 'cooldown') return 'cooldown'
-      if (claim === 'in_progress') return 'refresh_in_progress'
-      claimed = true
-
-      const windows = insightReportWindows(now)
-      const { current, previousThemes } = await this.repository.loadSources(userId, windows)
-      if (current.length < INSIGHT_REPORT_MIN_ANALYZED_ENTRIES) return 'insufficient_entries'
-      const selectedSources = selectInsightSources(current, this.limits.maxSourceEntries)
-      const generationDeadline = new Date(
-        now.getTime() + INSIGHT_REPORT_LEASE_MS - INSIGHT_REPORT_LEASE_SAFETY_MS,
-      )
-      const remainingGenerationMs = generationDeadline.getTime() - this.now().getTime()
-      if (remainingGenerationMs <= 0) {
-        this.log.warn('Insight report generation deadline elapsed before the model call', {
+      if (!(await this.repository.activateGeneration(userId, claimedAt, executionAt))) {
+        this.log.warn('Insight report generation skipped because its claim is already executing', {
           userId,
         })
+        return 'failed'
+      }
+
+      const windows = insightReportWindows(claimedAt)
+      const { current, previousThemes } = await this.repository.loadSources(userId, windows)
+      if (current.length < minimumSources) {
+        await this.repository.failGeneration(userId, executionAt, null)
+        return 'insufficient_entries'
+      }
+
+      const remainingGenerationMs = generationDeadline.getTime() - this.now().getTime()
+      if (remainingGenerationMs <= 0) {
+        await this.repository.failGeneration(userId, executionAt, 'timed_out')
         return 'timed_out'
       }
-      generationTimeoutMs = Math.min(this.limits.generationTimeoutMs, remainingGenerationMs)
 
+      const selectedSources = selectInsightSources(current, this.limits.maxSourceEntries)
       const { object, tripwire } = await this.callAgent({
         userId,
         entries: selectedSources,
         previousThemes,
-        timeoutMs: generationTimeoutMs,
+        timeoutMs: Math.min(this.limits.generationTimeoutMs, remainingGenerationMs),
       })
       if (tripwire) {
         const rateLimited = isAiRateLimited(tripwire)
@@ -343,6 +482,11 @@ export class InsightReportService {
           rateLimited,
           processorId: tripwire.processorId,
         })
+        await this.repository.failGeneration(
+          userId,
+          executionAt,
+          rateLimited ? 'rate_limited' : 'generation_failed',
+        )
         return rateLimited ? 'rate_limited' : 'failed'
       }
 
@@ -351,49 +495,49 @@ export class InsightReportService {
         !report ||
         (report.recurringThemes.length === 0 && report.growthSuggestions.length === 0)
       ) {
-        this.log.warn('Insight report returned insufficient grounded evidence', { userId })
+        await this.repository.failGeneration(userId, executionAt, 'insufficient_evidence')
         return 'insufficient_evidence'
       }
 
-      const saved = await this.repository.saveReport(userId, token, {
+      const saved = await this.repository.saveReport(userId, executionAt, {
         ...report,
         periodStart: windows.currentStart,
         periodEnd: windows.currentEnd,
         entryCount: selectedSources.length,
         model: INSIGHTS_MODEL,
-        createdAt: now,
+        generatedAt: claimedAt,
       })
-      claimed = !saved
       if (!saved) {
-        this.log.warn('Insight report lease expired before persistence', { userId })
+        this.log.warn('Insight report claim was replaced before persistence', { userId })
         return 'failed'
       }
       return 'generated'
     } catch (error) {
-      if (isMastraTimeoutError(error)) {
-        this.log.warn('Insight report generation timed out', {
-          userId,
-          timeoutMs: generationTimeoutMs,
-        })
-        return 'timed_out'
-      }
+      const code = failureCode(error)
       this.log.warn('Insight report generation failed', {
         userId,
+        code,
         error: error instanceof Error ? error.message : String(error),
       })
-      return 'failed'
-    } finally {
-      if (claimed) {
-        try {
-          await this.repository.releaseRefresh(userId, token, this.now())
-        } catch (error) {
-          this.log.warn('Insight report refresh lease could not be released', {
-            userId,
-            error: error instanceof Error ? error.message : String(error),
-          })
-        }
+      try {
+        await this.repository.failGeneration(userId, executionAt, code)
+      } catch (cleanupError) {
+        this.log.warn('Insight report generation cleanup failed', {
+          userId,
+          error: cleanupError instanceof Error ? cleanupError.message : String(cleanupError),
+        })
       }
+      return code === 'timed_out' ? 'timed_out' : 'failed'
     }
+  }
+
+  /** Compatibility wrapper for the current synchronous refresh workflow. */
+  async refresh(userId: string): Promise<InsightReportStatus> {
+    const start = await this.tryStart(userId, { manual: true })
+    if (start.status === 'claimed') return this.generateClaimedReport(userId, start.claimedAt)
+    if (start.status === 'not_enough_entries') return 'insufficient_entries'
+    if (start.status === 'cooldown') return 'cooldown'
+    return 'refresh_in_progress'
   }
 }
 

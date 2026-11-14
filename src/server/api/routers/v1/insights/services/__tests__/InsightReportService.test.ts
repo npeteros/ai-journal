@@ -7,17 +7,20 @@ vi.mock('@/src/lib/prisma', () => ({ default: {} }))
 
 import {
   InsightReportService,
-  INSIGHT_REPORT_LEASE_MS,
-  INSIGHT_REPORT_LEASE_SAFETY_MS,
+  INSIGHT_REPORT_LOCK_SAFETY_MS,
+  INSIGHT_REPORT_LOCK_TIMEOUT_MS,
+  INSIGHT_REPORT_MANUAL_REFRESH_COOLDOWN_MS,
+  INSIGHT_REPORT_MAX_AGE_MS,
+  INSIGHT_REPORT_MIN_NEW_ENTRIES,
   insightReportLimits,
   insightReportWindows,
-  selectInsightSources,
   type InsightReportAgentCall,
   type InsightReportLimits,
   type InsightReportRepository,
 } from '../InsightReportService'
 
 const NOW = new Date('2026-02-10T14:30:00.000Z')
+const EXECUTION_AT = new Date(NOW.getTime() + 1)
 const ENTRY_IDS = [
   '00000000-0000-4000-8000-000000000001',
   '00000000-0000-4000-8000-000000000002',
@@ -35,17 +38,24 @@ const sources = ENTRY_IDS.map((id, index) => ({
 
 function repository(overrides: Partial<InsightReportRepository> = {}): InsightReportRepository {
   return {
-    claimRefresh: vi.fn().mockResolvedValue('claimed'),
+    findReport: vi.fn().mockResolvedValue({
+      generatedAt: null,
+      generatingAt: NOW,
+      lastRefreshAt: null,
+    }),
+    countAnalyzedEntries: vi.fn().mockResolvedValue(5),
+    ensureReport: vi.fn().mockResolvedValue(undefined),
+    claimGeneration: vi.fn().mockResolvedValue(true),
+    activateGeneration: vi.fn().mockResolvedValue(true),
     loadSources: vi.fn().mockResolvedValue({ current: sources, previousThemes: [] }),
     saveReport: vi.fn().mockResolvedValue(true),
-    releaseRefresh: vi.fn().mockResolvedValue(undefined),
+    failGeneration: vi.fn().mockResolvedValue(undefined),
     ...overrides,
   }
 }
 
 const log = { warn: vi.fn() } as unknown as IMastraLogger
-
-const TEST_LIMITS: InsightReportLimits = { maxSourceEntries: 50, generationTimeoutMs: 600_000 }
+const TEST_LIMITS: InsightReportLimits = { maxSourceEntries: 50, generationTimeoutMs: 180_000 }
 
 function service(
   callAgent: InsightReportAgentCall,
@@ -67,60 +77,137 @@ describe('InsightReportService', () => {
     })
   })
 
-  it('clamps environment configuration to preserve the evidence minimum and lease safety margin', () => {
+  it('caps model work at three minutes inside the five-minute stale-lock timeout', () => {
     expect(
       insightReportLimits({
         INSIGHT_REPORT_MAX_SOURCE_ENTRIES: '2',
-        INSIGHT_REPORT_GENERATION_TIMEOUT_MS: String(INSIGHT_REPORT_LEASE_MS),
+        INSIGHT_REPORT_GENERATION_TIMEOUT_MS: String(INSIGHT_REPORT_LOCK_TIMEOUT_MS),
       }),
-    ).toEqual({
-      maxSourceEntries: 5,
-      generationTimeoutMs: INSIGHT_REPORT_LEASE_MS - INSIGHT_REPORT_LEASE_SAFETY_MS,
-    })
+    ).toEqual({ maxSourceEntries: 5, generationTimeoutMs: 180_000 })
+    expect(INSIGHT_REPORT_LOCK_TIMEOUT_MS - INSIGHT_REPORT_LOCK_SAFETY_MS).toBe(180_000)
   })
 
-  it('requires five current analyzed entries without calling AI', async () => {
-    const callAgent = vi.fn<InsightReportAgentCall>()
+  it('marks an ungenerated report stale only after the entry minimum is met', async () => {
+    const fakeRepository = repository({ countAnalyzedEntries: vi.fn().mockResolvedValue(4) })
+    await expect(service(vi.fn(), fakeRepository).isStale('user-1')).resolves.toBe(false)
+
+    fakeRepository.countAnalyzedEntries = vi.fn().mockResolvedValue(5)
+    await expect(service(vi.fn(), fakeRepository).isStale('user-1')).resolves.toBe(true)
+  })
+
+  it('requires age and enough newer analyses before regenerating a successful report', async () => {
+    const generatedAt = new Date(NOW.getTime() - INSIGHT_REPORT_MAX_AGE_MS - 1)
+    const countAnalyzedEntries = vi
+      .fn()
+      .mockResolvedValueOnce(INSIGHT_REPORT_MIN_NEW_ENTRIES - 1)
+      .mockResolvedValueOnce(INSIGHT_REPORT_MIN_NEW_ENTRIES)
     const fakeRepository = repository({
-      loadSources: vi.fn().mockResolvedValue({ current: sources.slice(0, 4), previousThemes: [] }),
+      findReport: vi
+        .fn()
+        .mockResolvedValue({ generatedAt, generatingAt: null, lastRefreshAt: null }),
+      countAnalyzedEntries,
     })
 
-    await expect(service(callAgent, fakeRepository).refresh('user-1')).resolves.toBe(
-      'insufficient_entries',
+    await expect(service(vi.fn(), fakeRepository).isStale('user-1')).resolves.toBe(false)
+    await expect(service(vi.fn(), fakeRepository).isStale('user-1')).resolves.toBe(true)
+    expect(countAnalyzedEntries).toHaveBeenLastCalledWith('user-1', expect.any(Object), generatedAt)
+  })
+
+  it('does not regenerate a report younger than seven days', async () => {
+    const fakeRepository = repository({
+      findReport: vi.fn().mockResolvedValue({
+        generatedAt: new Date(NOW.getTime() - INSIGHT_REPORT_MAX_AGE_MS + 1),
+        generatingAt: null,
+        lastRefreshAt: null,
+      }),
+    })
+
+    await expect(service(vi.fn(), fakeRepository).isStale('user-1')).resolves.toBe(false)
+    expect(fakeRepository.countAnalyzedEntries).not.toHaveBeenCalled()
+  })
+
+  it('claims a stale report with a bounded stale-lock recovery window', async () => {
+    const fakeRepository = repository()
+    const start = await service(vi.fn(), fakeRepository).tryStart('user-1')
+
+    expect(start).toEqual({ status: 'claimed', claimedAt: NOW })
+    expect(fakeRepository.ensureReport).toHaveBeenCalledWith('user-1')
+    expect(fakeRepository.claimGeneration).toHaveBeenCalledWith({
+      userId: 'user-1',
+      claimedAt: NOW,
+      lockExpiresBefore: new Date(NOW.getTime() - INSIGHT_REPORT_LOCK_TIMEOUT_MS),
+      manualRefreshAfter: new Date(NOW.getTime() - INSIGHT_REPORT_MANUAL_REFRESH_COOLDOWN_MS),
+      isManual: false,
+    })
+  })
+
+  it('claims an old report after three new analyses even when fewer than five are in the current window', async () => {
+    const generatedAt = new Date(NOW.getTime() - INSIGHT_REPORT_MAX_AGE_MS - 1)
+    const fakeRepository = repository({
+      findReport: vi
+        .fn()
+        .mockResolvedValue({ generatedAt, generatingAt: null, lastRefreshAt: null }),
+      countAnalyzedEntries: vi.fn().mockResolvedValue(INSIGHT_REPORT_MIN_NEW_ENTRIES),
+    })
+
+    await expect(service(vi.fn(), fakeRepository).tryStart('user-1')).resolves.toEqual({
+      status: 'claimed',
+      claimedAt: NOW,
+    })
+  })
+
+  it('does not claim automatically when a successful report is still fresh', async () => {
+    const fakeRepository = repository({
+      findReport: vi.fn().mockResolvedValue({
+        generatedAt: new Date(NOW.getTime() - 1),
+        generatingAt: null,
+        lastRefreshAt: null,
+      }),
+    })
+
+    await expect(service(vi.fn(), fakeRepository).tryStart('user-1')).resolves.toEqual({
+      status: 'not_stale',
+    })
+    expect(fakeRepository.claimGeneration).not.toHaveBeenCalled()
+  })
+
+  it('enforces the once-per-day manual refresh limit through the atomic claim', async () => {
+    const fakeRepository = repository({
+      claimGeneration: vi.fn().mockResolvedValue(false),
+      findReport: vi.fn().mockResolvedValue({
+        generatedAt: NOW,
+        generatingAt: null,
+        lastRefreshAt: new Date(NOW.getTime() - 1),
+      }),
+    })
+
+    await expect(
+      service(vi.fn(), fakeRepository).tryStart('user-1', { manual: true }),
+    ).resolves.toEqual({
+      status: 'cooldown',
+      nextManualRefreshAt: new Date(NOW.getTime() - 1 + INSIGHT_REPORT_MANUAL_REFRESH_COOLDOWN_MS),
+    })
+    expect(fakeRepository.claimGeneration).toHaveBeenCalledWith(
+      expect.objectContaining({
+        isManual: true,
+        manualRefreshAfter: new Date(NOW.getTime() - INSIGHT_REPORT_MANUAL_REFRESH_COOLDOWN_MS),
+      }),
     )
+  })
+
+  it('returns an entry shortfall without creating a report or calling AI', async () => {
+    const fakeRepository = repository({ countAnalyzedEntries: vi.fn().mockResolvedValue(3) })
+    const callAgent = vi.fn<InsightReportAgentCall>()
+
+    await expect(service(callAgent, fakeRepository).tryStart('user-1')).resolves.toEqual({
+      status: 'not_enough_entries',
+      missingEntries: 2,
+    })
+    expect(fakeRepository.ensureReport).not.toHaveBeenCalled()
     expect(callAgent).not.toHaveBeenCalled()
-    expect(fakeRepository.releaseRefresh).toHaveBeenCalledOnce()
   })
 
-  it('selects the most recent bounded sources while preserving chronological order', () => {
-    const sourceSet = [
-      { ...sources[5 - 1], id: ENTRY_IDS[4], date: '2026-01-20' },
-      { ...sources[0], id: ENTRY_IDS[0], date: '2026-01-15' },
-      { ...sources[3], id: ENTRY_IDS[3], date: '2026-01-19' },
-      { ...sources[1], id: ENTRY_IDS[1], date: '2026-01-16' },
-      { ...sources[2], id: ENTRY_IDS[2], date: '2026-01-18' },
-      {
-        ...sources[0],
-        id: '00000000-0000-4000-8000-000000000006',
-        date: '2026-01-17',
-      },
-      {
-        ...sources[0],
-        id: '00000000-0000-4000-8000-000000000007',
-        date: '2026-01-21',
-      },
-    ]
-
-    expect(selectInsightSources(sourceSet, 5).map(({ date }) => date)).toEqual([
-      '2026-01-17',
-      '2026-01-18',
-      '2026-01-19',
-      '2026-01-20',
-      '2026-01-21',
-    ])
-  })
-
-  it('persists only reports grounded in the current user-owned sources', async () => {
+  it('persists only reports grounded in the claimed user-owned sources', async () => {
     const callAgent = vi.fn<InsightReportAgentCall>().mockResolvedValue({
       object: {
         recurringThemes: [
@@ -144,32 +231,42 @@ describe('InsightReportService', () => {
     })
     const fakeRepository = repository()
 
-    await expect(service(callAgent, fakeRepository).refresh('user-1')).resolves.toBe('generated')
+    await expect(
+      service(callAgent, fakeRepository).generateClaimedReport('user-a', NOW),
+    ).resolves.toBe('generated')
+    expect(callAgent).toHaveBeenCalledWith(expect.objectContaining({ userId: 'user-a' }))
     expect(fakeRepository.saveReport).toHaveBeenCalledWith(
-      'user-1',
-      expect.any(String),
+      'user-a',
+      EXECUTION_AT,
       expect.objectContaining({
         entryCount: 5,
+        generatedAt: NOW,
         recurringThemes: [
           expect.objectContaining({ mentions: 2, entryIds: ENTRY_IDS.slice(0, 2) }),
         ],
       }),
     )
-    expect(fakeRepository.releaseRefresh).not.toHaveBeenCalled()
   })
 
-  it('stores the selected input count and refuses evidence from entries truncated out of the prompt', async () => {
-    const extra = {
-      ...sources[0],
-      id: '00000000-0000-4000-8000-000000000006',
-      date: '2026-02-06',
-    }
-    const sixSources = [...sources, extra]
+  it('does not call AI for an initial report with fewer than five sources', async () => {
+    const fakeRepository = repository({
+      loadSources: vi.fn().mockResolvedValue({ current: sources.slice(0, 4), previousThemes: [] }),
+    })
+    const callAgent = vi.fn<InsightReportAgentCall>()
+
+    await expect(
+      service(callAgent, fakeRepository).generateClaimedReport('user-1', NOW),
+    ).resolves.toBe('insufficient_entries')
+    expect(callAgent).not.toHaveBeenCalled()
+    expect(fakeRepository.failGeneration).toHaveBeenCalledWith('user-1', EXECUTION_AT, null)
+  })
+
+  it.each([3, 4])('regenerates an existing report with %i sources', async (sourceCount) => {
     const callAgent = vi.fn<InsightReportAgentCall>().mockResolvedValue({
       object: {
         recurringThemes: [
           {
-            title: 'Excluded source',
+            title: 'Work boundaries',
             mentions: 1,
             trend: 'steady',
             entryIds: [ENTRY_IDS[0]],
@@ -180,62 +277,95 @@ describe('InsightReportService', () => {
       },
     })
     const fakeRepository = repository({
-      loadSources: vi.fn().mockResolvedValue({ current: sixSources, previousThemes: [] }),
+      findReport: vi.fn().mockResolvedValue({
+        generatedAt: new Date(NOW.getTime() - INSIGHT_REPORT_MAX_AGE_MS - 1),
+        generatingAt: NOW,
+        lastRefreshAt: null,
+      }),
+      loadSources: vi.fn().mockResolvedValue({
+        current: sources.slice(0, sourceCount),
+        previousThemes: [],
+      }),
     })
 
     await expect(
-      service(callAgent, fakeRepository, {
-        maxSourceEntries: 5,
-        generationTimeoutMs: 600_000,
-      }).refresh('user-1'),
-    ).resolves.toBe('insufficient_evidence')
-    expect(callAgent).toHaveBeenCalledWith(
-      expect.objectContaining({ entries: sixSources.slice(1), timeoutMs: 600_000 }),
-    )
-    expect(fakeRepository.saveReport).not.toHaveBeenCalled()
-    expect(fakeRepository.releaseRefresh).toHaveBeenCalledOnce()
-  })
-
-  it('persists the selected prompt count instead of every eligible entry in the period', async () => {
-    const extra = {
-      ...sources[0],
-      id: '00000000-0000-4000-8000-000000000006',
-      date: '2026-02-06',
-    }
-    const sixSources = [...sources, extra]
-    const selectedIds = sixSources.slice(1).map(({ id }) => id)
-    const callAgent = vi.fn<InsightReportAgentCall>().mockResolvedValue({
-      object: {
-        recurringThemes: [
-          {
-            title: 'Work boundaries',
-            mentions: 2,
-            trend: 'steady',
-            entryIds: selectedIds.slice(0, 2),
-          },
-        ],
-        growthSuggestions: [],
-        trendCaption: null,
-      },
-    })
-    const fakeRepository = repository({
-      loadSources: vi.fn().mockResolvedValue({ current: sixSources, previousThemes: [] }),
-    })
-
-    await expect(
-      service(callAgent, fakeRepository, {
-        maxSourceEntries: 5,
-        generationTimeoutMs: 600_000,
-      }).refresh('user-1'),
+      service(callAgent, fakeRepository).generateClaimedReport('user-1', NOW),
     ).resolves.toBe('generated')
+    expect(callAgent).toHaveBeenCalledOnce()
     expect(fakeRepository.saveReport).toHaveBeenCalledWith(
       'user-1',
-      expect.any(String),
-      expect.objectContaining({ entryCount: 5 }),
+      EXECUTION_AT,
+      expect.objectContaining({ entryCount: sourceCount }),
     )
   })
 
-  it('rejects model items that cite an entry outside the user-owned source set', async () => {
+  it('does not call AI for an existing report with fewer than three sources', async () => {
+    const fakeRepository = repository({
+      findReport: vi.fn().mockResolvedValue({
+        generatedAt: new Date(NOW.getTime() - INSIGHT_REPORT_MAX_AGE_MS - 1),
+        generatingAt: NOW,
+        lastRefreshAt: null,
+      }),
+      loadSources: vi.fn().mockResolvedValue({ current: sources.slice(0, 2), previousThemes: [] }),
+    })
+    const callAgent = vi.fn<InsightReportAgentCall>()
+
+    await expect(
+      service(callAgent, fakeRepository).generateClaimedReport('user-1', NOW),
+    ).resolves.toBe('insufficient_entries')
+    expect(callAgent).not.toHaveBeenCalled()
+  })
+
+  it('admits only one concurrent worker for the same claim', async () => {
+    let releaseAgent: (() => void) | undefined
+    const agentStarted = new Promise<void>((resolve) => {
+      releaseAgent = resolve
+    })
+    const callAgent = vi.fn<InsightReportAgentCall>().mockImplementation(async () => {
+      await agentStarted
+      return {
+        object: {
+          recurringThemes: [
+            { title: 'Work boundaries', mentions: 1, trend: 'steady', entryIds: [ENTRY_IDS[0]] },
+          ],
+          growthSuggestions: [],
+          trendCaption: null,
+        },
+      }
+    })
+    const fakeRepository = repository({
+      activateGeneration: vi.fn().mockResolvedValueOnce(true).mockResolvedValueOnce(false),
+    })
+
+    const firstWorker = service(callAgent, fakeRepository).generateClaimedReport('user-1', NOW)
+    await vi.waitFor(() => expect(fakeRepository.activateGeneration).toHaveBeenCalledOnce())
+    const duplicateWorker = service(callAgent, fakeRepository).generateClaimedReport('user-1', NOW)
+
+    await expect(duplicateWorker).resolves.toBe('failed')
+    expect(callAgent).toHaveBeenCalledOnce()
+    releaseAgent?.()
+    await expect(firstWorker).resolves.toBe('generated')
+    expect(callAgent).toHaveBeenCalledOnce()
+  })
+
+  it('rejects a workflow run whose active claim was cleared or replaced', async () => {
+    const fakeRepository = repository({
+      findReport: vi.fn().mockResolvedValue({
+        generatedAt: null,
+        generatingAt: new Date(NOW.getTime() - 1),
+        lastRefreshAt: null,
+      }),
+    })
+    const callAgent = vi.fn<InsightReportAgentCall>()
+
+    await expect(
+      service(callAgent, fakeRepository).generateClaimedReport('user-1', NOW),
+    ).resolves.toBe('failed')
+    expect(callAgent).not.toHaveBeenCalled()
+    expect(fakeRepository.saveReport).not.toHaveBeenCalled()
+  })
+
+  it('keeps the previous report by recording an ownership validation failure instead of saving', async () => {
     const callAgent = vi.fn<InsightReportAgentCall>().mockResolvedValue({
       object: {
         recurringThemes: [
@@ -252,81 +382,34 @@ describe('InsightReportService', () => {
     })
     const fakeRepository = repository()
 
-    await expect(service(callAgent, fakeRepository).refresh('user-1')).resolves.toBe(
+    await expect(
+      service(callAgent, fakeRepository).generateClaimedReport('user-1', NOW),
+    ).resolves.toBe('insufficient_evidence')
+    expect(fakeRepository.saveReport).not.toHaveBeenCalled()
+    expect(fakeRepository.failGeneration).toHaveBeenCalledWith(
+      'user-1',
+      EXECUTION_AT,
       'insufficient_evidence',
     )
-    expect(fakeRepository.saveReport).not.toHaveBeenCalled()
-    expect(fakeRepository.releaseRefresh).toHaveBeenCalledOnce()
   })
 
-  it('does not call AI while an existing report is still within the refresh cooldown', async () => {
-    const callAgent = vi.fn<InsightReportAgentCall>()
-    const fakeRepository = repository({ claimRefresh: vi.fn().mockResolvedValue('cooldown') })
-
-    await expect(service(callAgent, fakeRepository).refresh('user-1')).resolves.toBe('cooldown')
-    expect(callAgent).not.toHaveBeenCalled()
-    expect(fakeRepository.releaseRefresh).not.toHaveBeenCalled()
-  })
-
-  it('returns timed_out and releases the lease when Mastra enforces the model deadline', async () => {
+  it('records sanitized failure state and releases the report-row lock after a timeout', async () => {
     const callAgent = vi
       .fn<InsightReportAgentCall>()
-      .mockRejectedValue(new MastraTimeoutError({ timeoutType: 'total', timeoutMs: 600_000 }))
+      .mockRejectedValue(new MastraTimeoutError({ timeoutType: 'total', timeoutMs: 180_000 }))
     const fakeRepository = repository()
-
-    await expect(service(callAgent, fakeRepository).refresh('user-1')).resolves.toBe('timed_out')
-    expect(callAgent).toHaveBeenCalledWith(expect.objectContaining({ timeoutMs: 600_000 }))
-    expect(fakeRepository.releaseRefresh).toHaveBeenCalledOnce()
-  })
-
-  it('does not begin a model call once source loading has consumed the lease safety margin', async () => {
-    const callAgent = vi.fn<InsightReportAgentCall>()
-    const fakeRepository = repository()
-    const deadlinePassed = new Date(
-      NOW.getTime() + INSIGHT_REPORT_LEASE_MS - INSIGHT_REPORT_LEASE_SAFETY_MS + 1,
-    )
-    const times = [NOW, deadlinePassed, deadlinePassed]
 
     await expect(
-      service(
-        callAgent,
-        fakeRepository,
-        TEST_LIMITS,
-        () => times.shift() ?? deadlinePassed,
-      ).refresh('user-1'),
+      service(callAgent, fakeRepository).generateClaimedReport('user-1', NOW),
     ).resolves.toBe('timed_out')
-    expect(callAgent).not.toHaveBeenCalled()
-    expect(fakeRepository.releaseRefresh).toHaveBeenCalledOnce()
+    expect(fakeRepository.failGeneration).toHaveBeenCalledWith('user-1', EXECUTION_AT, 'timed_out')
   })
 
-  it('releases its lease when the model is rate limited or fails', async () => {
-    const rateLimitedAgent = vi.fn<InsightReportAgentCall>().mockResolvedValue({
-      tripwire: { processorId: 'ai-usage', metadata: { code: 'TOO_MANY_REQUESTS' } },
-    })
-    const rateLimitedRepository = repository()
-    await expect(service(rateLimitedAgent, rateLimitedRepository).refresh('user-1')).resolves.toBe(
-      'rate_limited',
-    )
-    expect(rateLimitedRepository.releaseRefresh).toHaveBeenCalledOnce()
-
-    const failingAgent = vi
-      .fn<InsightReportAgentCall>()
-      .mockRejectedValue(new Error('provider failed'))
-    const failingRepository = repository()
-    await expect(service(failingAgent, failingRepository).refresh('user-1')).resolves.toBe('failed')
-    expect(failingRepository.releaseRefresh).toHaveBeenCalledOnce()
-  })
-
-  it('cleans up a lease that expires before a late model result can be persisted', async () => {
+  it('refuses a late worker write after its claim was replaced', async () => {
     const callAgent = vi.fn<InsightReportAgentCall>().mockResolvedValue({
       object: {
         recurringThemes: [
-          {
-            title: 'Work boundaries',
-            mentions: 1,
-            trend: 'steady',
-            entryIds: [ENTRY_IDS[0]],
-          },
+          { title: 'Work boundaries', mentions: 1, trend: 'steady', entryIds: [ENTRY_IDS[0]] },
         ],
         growthSuggestions: [],
         trendCaption: null,
@@ -334,8 +417,29 @@ describe('InsightReportService', () => {
     })
     const fakeRepository = repository({ saveReport: vi.fn().mockResolvedValue(false) })
 
-    await expect(service(callAgent, fakeRepository).refresh('user-1')).resolves.toBe('failed')
-    expect(callAgent).toHaveBeenCalledOnce()
-    expect(fakeRepository.releaseRefresh).toHaveBeenCalledOnce()
+    await expect(
+      service(callAgent, fakeRepository).generateClaimedReport('user-1', NOW),
+    ).resolves.toBe('failed')
+    expect(fakeRepository.failGeneration).not.toHaveBeenCalled()
+  })
+
+  it('allows recovery after an activated worker crashes and its lock becomes stale', async () => {
+    const recoveryTime = new Date(EXECUTION_AT.getTime() + INSIGHT_REPORT_LOCK_TIMEOUT_MS + 1)
+    const fakeRepository = repository({
+      findReport: vi.fn().mockResolvedValue({
+        generatedAt: null,
+        generatingAt: EXECUTION_AT,
+        lastRefreshAt: null,
+      }),
+    })
+
+    await expect(
+      service(vi.fn(), fakeRepository, TEST_LIMITS, () => recoveryTime).tryStart('user-1'),
+    ).resolves.toEqual({ status: 'claimed', claimedAt: recoveryTime })
+    expect(fakeRepository.claimGeneration).toHaveBeenCalledWith(
+      expect.objectContaining({
+        lockExpiresBefore: new Date(recoveryTime.getTime() - INSIGHT_REPORT_LOCK_TIMEOUT_MS),
+      }),
+    )
   })
 })
