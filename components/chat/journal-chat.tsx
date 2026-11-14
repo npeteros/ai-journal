@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import Link from 'next/link'
 import { useChat } from '@ai-sdk/react'
 import { APICallError, DefaultChatTransport, isTextUIPart, isToolUIPart, type UIMessage } from 'ai'
@@ -8,7 +8,7 @@ import { AnimatePresence, motion } from 'motion/react'
 import { ArrowRight, BookOpen } from 'lucide-react'
 import { cn } from 'cn'
 
-import { JadenFor, JadenPerch, PLACEMENTS } from '@/components/jaden'
+import { JadenFor, JadenPerch, PLACEMENTS, belowEdge, heightFor } from '@/components/jaden'
 import { SPRING } from '@/components/motion'
 import { AiLabel, Orb } from '@/components/ui/ai'
 import { CHAT_API, CHAT_RATE_LIMITED_CODE, CHAT_RATE_LIMITED_MESSAGE } from '@/src/lib/chat'
@@ -20,6 +20,9 @@ const STARTER_QUESTIONS = [
   "What's been on my mind about work lately?",
   'When did I last feel proud of myself?',
 ]
+
+// How far Jaden rises above the chat input's top edge.
+const PERCH_CLEARANCE = heightFor(PLACEMENTS.chat.size) - belowEdge(PLACEMENTS.chat.size)
 
 // Earlier turns live in the agent's memory, so only the new message is sent.
 const transport = new DefaultChatTransport<UIMessage>({
@@ -177,7 +180,12 @@ export function JournalChat({ initialMessages }: { initialMessages: UIMessage[] 
             )}
           </div>
         )}
-        <div ref={endRef} />
+        {/* Reserves room for Jaden perched on the input so he never covers the last message. */}
+        <div
+          ref={endRef}
+          className="shrink-0 sm:h-[var(--perch-clearance)]"
+          style={{ '--perch-clearance': `${PERCH_CLEARANCE}px` } as CSSProperties}
+        />
       </div>
 
       <form

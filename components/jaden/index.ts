@@ -8,6 +8,7 @@ export {
   PLACEMENTS,
   SIZES,
   belowEdge,
+  heightFor,
   resolveSize,
   type JadenEntrance,
   type JadenGesture,
