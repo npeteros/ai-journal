@@ -7,7 +7,7 @@ import { EntryList } from '@/components/journal/entry-list'
 import { TodayBand } from '@/components/journal/today-band'
 import { Rise } from '@/components/motion'
 import { formatTodayOverline, greetingFor } from '@/src/lib/format'
-import { todaysPrompt, weekMoods } from '@/src/lib/placeholder/entries'
+import { todaysPrompt } from '@/src/lib/placeholder/entries'
 import { placeholderUser } from '@/src/lib/placeholder/user'
 import { PAGE_SIZE_DEFAULT } from '@/src/server/api/routers/v1/entry/schema'
 import { getQueryClient, trpc } from '@/src/server/trpc/server'
@@ -61,7 +61,6 @@ export default async function JournalHomePage() {
         <TodayBand
           prompt={todaysPrompt.text}
           source={todaysPrompt.source}
-          week={weekMoods}
           writeHref="/journal/new"
         />
       </Rise>
