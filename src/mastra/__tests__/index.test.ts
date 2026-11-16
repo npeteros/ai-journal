@@ -49,7 +49,9 @@ vi.mock('../tools/search-entries-tool', () => ({ searchEntriesTool: { id: 'searc
 vi.mock('../workflows/entry-analysis-workflow', () => ({
   entryAnalysisWorkflow: { id: 'entry-analysis-workflow' },
 }))
-vi.mock('../workflows/insights-workflow', () => ({ insightsWorkflow: { id: 'insights-workflow' } }))
+vi.mock('../workflows/insights-workflow', () => ({
+  insightsWorkflow: { id: 'insights-workflow' },
+}))
 
 await import('../index')
 
@@ -86,17 +88,26 @@ describe('Mastra registration', () => {
     })
   })
 
-  it('does not load @mastra/duckdb in production', async () => {
+  it('passes Mastra storage in dev', () => {
+    expect(mocks.config).toHaveProperty('storage')
+  })
+
+  it('configures no Mastra storage and loads no native store packages in production', async () => {
     vi.resetModules()
     vi.stubEnv('NODE_ENV', 'production')
     vi.doMock('@mastra/duckdb', () => {
       throw new Error('libduckdb.so: cannot open shared object file')
     })
+    vi.doMock('@mastra/libsql', () => {
+      throw new Error('Unable to open connection to local database ./mastra.db')
+    })
     try {
       await expect(import('../index')).resolves.toHaveProperty('mastra')
+      expect(mocks.config).not.toHaveProperty('storage')
       expect(mocks.config).not.toHaveProperty('observability')
     } finally {
       vi.doUnmock('@mastra/duckdb')
+      vi.doUnmock('@mastra/libsql')
       vi.unstubAllEnvs()
     }
   })
