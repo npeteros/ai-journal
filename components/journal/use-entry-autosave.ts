@@ -56,9 +56,19 @@ export function useEntryAutosave(entry?: SavedEntry, delayMs = AUTOSAVE_DELAY_MS
   const [entryId, setEntryId] = useState<string | null>(entry?.id ?? null)
   const [writtenAt, setWrittenAt] = useState<string | null>(entry?.writtenAt ?? null)
   const [deleting, setDeleting] = useState(false)
-  const [analyzing, setAnalyzing] = useState(false)
+  // An entry saved elsewhere moments ago (e.g. drafted in a voice session) may still be being
+  // analyzed when the editor opens. Read once from the hydrated cache: its save time, or null.
+  const [pendingAnalysisSince] = useState<number | null>(() => {
+    if (!entry) return null
+    const cached = queryClient.getQueryData(trpc.v1.entry.findOne.queryKey({ id: entry.id }))
+    if (!cached) return null
+    const savedAt = new Date(cached.updatedAt).getTime()
+    const analyzedAt = analysisStamp(cached) ?? -Infinity
+    return analyzedAt < savedAt && Date.now() - savedAt <= ANALYSIS_POLL_WINDOW_MS ? savedAt : null
+  })
+  const [analyzing, setAnalyzing] = useState(pendingAnalysisSince !== null)
   /** Server time of the last save that changed the body; analyses older than this are stale. */
-  const [bodySavedAt, setBodySavedAt] = useState<number | null>(null)
+  const [bodySavedAt, setBodySavedAt] = useState<number | null>(pendingAnalysisSince)
 
   const draftRef = useRef(draft)
   /** Snapshot of the draft the server last confirmed; a different snapshot means unsaved edits. */
@@ -123,6 +133,17 @@ export function useEntryAutosave(entry?: SavedEntry, delayMs = AUTOSAVE_DELAY_MS
     },
     [queryClient, trpc, invalidateEntryList],
   )
+
+  // Wait for the pending analysis found on open, as if this editor had made the save. Started
+  // once, after the effect (not synchronously) since `analyzing` is already initialised to true.
+  const initialEntryId = entry?.id
+  const pendingPollStartedRef = useRef(false)
+  useEffect(() => {
+    if (initialEntryId === undefined || pendingAnalysisSince === null) return
+    if (pendingPollStartedRef.current) return
+    pendingPollStartedRef.current = true
+    queueMicrotask(() => void waitForAnalysis(initialEntryId, pendingAnalysisSince))
+  }, [initialEntryId, pendingAnalysisSince, waitForAnalysis])
 
   /** Creating or deleting an entry can change the streak in the app shell. */
   const invalidateStats = useCallback(
