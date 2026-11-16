@@ -230,6 +230,8 @@ export function EntryList() {
                           body: entry.body,
                           writtenAt: entry.writtenAt,
                           tags: entry.tags.map((t) => t.name),
+                          // No spine until the entry has been analyzed
+                          mood: entry.analysis?.mood,
                         }}
                         now={now}
                         href={`/journal/${entry.id}`}

@@ -7,25 +7,43 @@ import { Check, Mic, Plus, Sparkles, Trash2, X } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { Chip } from '@/components/ui/chip'
+import { moodLabel } from '@/src/lib/design-tokens/colors'
 import { formatEntryDateTime } from '@/src/lib/format'
 import { TAG_NAME_MAX_LENGTH, TITLE_MAX_LENGTH } from '@/src/server/api/routers/v1/entry/schema'
-import { AiRail } from './ai-rail'
+import { AiRail, type AiRailState } from './ai-rail'
+import { useEntryAnalysis } from './use-entry-analysis'
 import { useEntryAutosave, type SavedEntry } from './use-entry-autosave'
 
 type EntryEditorProps = {
   /** Existing entry, or undefined for a new one */
   entry?: SavedEntry
-  /** The entry's analyzed mood score (0–100), if it has been analyzed. */
-  moodScore?: number | null
 }
 
-const NO_SUGGESTIONS: string[] = []
-
 /** Writing surface: title, auto-growing body, tags; AI rail beside it (below on mobile). */
-export function EntryEditor({ entry, moodScore }: EntryEditorProps) {
-  const { draft, update, status, error, entryId, writtenAt, deleting, save, flush, remove } =
-    useEntryAutosave(entry)
+export function EntryEditor({ entry }: EntryEditorProps) {
+  const {
+    draft,
+    update,
+    status,
+    error,
+    entryId,
+    writtenAt,
+    deleting,
+    analyzing,
+    save,
+    flush,
+    remove,
+  } = useEntryAutosave(entry)
   const { title, body, tags } = draft
+  const analysis = useEntryAnalysis(entryId)
+
+  // Accepting a suggestion adds it as a tag (saved by autosave), which also removes it here.
+  const suggestedTags =
+    analysis?.suggestedTags.filter(
+      (suggestion) => !tags.some((tag) => tag.toLowerCase() === suggestion.toLowerCase()),
+    ) ?? []
+  const railState: AiRailState =
+    entryId === null ? 'listening' : analyzing ? 'analyzing' : analysis ? 'ready' : 'unavailable'
 
   const [openedAt] = useState(() => new Date())
   const [adding, setAdding] = useState(false)
@@ -232,7 +250,14 @@ export function EntryEditor({ entry, moodScore }: EntryEditorProps) {
           </div>
         </div>
 
-        <AiRail suggestedTags={NO_SUGGESTIONS} onAcceptTag={addTag} moodScore={moodScore} />
+        <AiRail
+          state={railState}
+          moodLabel={analysis ? moodLabel[analysis.mood] : undefined}
+          moodScore={analysis?.moodScore}
+          suggestedTags={suggestedTags}
+          summary={analysis?.summary}
+          onAcceptTag={addTag}
+        />
       </div>
     </div>
   )

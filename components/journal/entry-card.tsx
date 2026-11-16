@@ -15,7 +15,7 @@ type EntryCardProps = {
     /** ISO timestamp */
     writtenAt: string
     tags: string[]
-    /** Not part of the entry API yet; the spine is hidden when omitted. */
+    /** The entry's analyzed mood (`entry.analysis.mood`); no spine is drawn until it has one. */
     mood?: Mood
   }
   /** Reference date for "Today"; defaults to the placeholder date, so real entries pass `new Date()`. */

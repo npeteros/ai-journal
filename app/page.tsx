@@ -15,6 +15,7 @@ export const metadata: Metadata = { title: { absolute: 'JADEN — Reflect deeper
 
 const previewEntry = {
   ...placeholderEntries[0],
+  mood: 'grateful' as const,
   body: 'Woke up before the alarm and just sat with my coffee for a while, no phone, no rush.',
 }
 
