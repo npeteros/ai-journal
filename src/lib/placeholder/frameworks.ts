@@ -92,5 +92,7 @@ export function getPlaceholderFramework(slug: string) {
 
 export const builderDraft = {
   title: 'Sunday Reset',
+  description: 'A gentle weekly reflection to close the loop on wins and worries.',
+  icon: 'layers' as const,
   prompts: ['What am I proud of this week?', "What's weighing on me going into next week?"],
 }
