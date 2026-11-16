@@ -73,37 +73,3 @@ export const todaysPrompt = {
 }
 
 export const companionPrompt = 'What made this morning feel different from most?'
-
-/**
- * Guided voice journaling: a scripted back-and-forth that stands in for a realtime AI voice model,
- * plus the entry JADEN drafts from it when the session ends.
- */
-export type VoiceTurn = { role: 'jaden' | 'user'; text: string }
-
-export const voiceSession: {
-  turns: VoiceTurn[]
-  draft: { title: string; body: string; tags: string[] }
-} = {
-  turns: [
-    { role: 'jaden', text: "Morning, Maya. How's today starting out?" },
-    {
-      role: 'user',
-      text: 'Slow, actually. I woke up before the alarm and just sat with my coffee.',
-    },
-    {
-      role: 'jaden',
-      text: 'That sounds peaceful. What made you stay with it instead of reaching for your phone?',
-    },
-    {
-      role: 'user',
-      text: 'I think I just needed to sit with that feeling for a minute before the day started.',
-    },
-    { role: 'jaden', text: "Is that something you'd like to make room for more often?" },
-    { role: 'user', text: 'Yeah. I want to remember this feeling more often.' },
-  ],
-  draft: {
-    title: 'A slower morning',
-    body: 'Woke up before the alarm and just sat with my coffee — no phone, no rush. I needed a minute with that feeling before the day started, and I want to make room for it more often.',
-    tags: ['Gratitude', 'Morning'],
-  },
-}
