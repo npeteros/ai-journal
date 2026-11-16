@@ -27,10 +27,17 @@ Element.prototype.scrollIntoView = vi.fn()
 const { JournalChat } = await import('./journal-chat')
 
 describe('JournalChat', () => {
-  it('offers a shortcut to voice journaling next to the chat input', () => {
+  it('offers a voice journaling button next to the chat input', () => {
     render(<JournalChat />)
 
     const link = screen.getByRole('link', { name: /talk with jaden instead/i })
     expect(link.getAttribute('href')).toBe('/journal/voice')
+  })
+
+  it('suggests voice journaling among the starter chips', () => {
+    render(<JournalChat />)
+
+    const chip = screen.getByRole('link', { name: /talk it through with jaden instead/i })
+    expect(chip.getAttribute('href')).toBe('/journal/voice')
   })
 })

@@ -209,9 +209,9 @@ export function JournalChat() {
           href="/journal/voice"
           aria-label="Talk with JADEN instead (voice journaling)"
           title="Talk with JADEN"
-          className="flex size-[52px] shrink-0 items-center justify-center rounded-full border border-neutral-200 bg-surface text-neutral-600 transition-colors hover:bg-neutral-100"
+          className="flex size-[52px] shrink-0 items-center justify-center rounded-full border border-cloud-200 bg-cloud-100 text-cloud-700 transition-colors hover:bg-cloud-200"
         >
-          <Mic className="size-5" />
+          <Mic className="size-5" strokeWidth={2.2} aria-hidden />
         </Link>
         <button
           type="submit"
@@ -243,12 +243,21 @@ function StarterQuestions({ onPick }: { onPick: (question: string) => void }) {
             <button
               type="button"
               onClick={() => onPick(question)}
-              className="rounded-full border border-neutral-200 bg-surface px-4 py-2 text-left text-[13px] font-medium text-neutral-700 transition-colors hover:border-neutral-400"
+              className="rounded-full border border-neutral-200 bg-surface px-4 py-2 text-left text-[13px] font-medium text-neutral-900 transition-colors hover:border-neutral-400"
             >
               {question}
             </button>
           </li>
         ))}
+        <li>
+          <Link
+            href="/journal/voice"
+            className="inline-flex items-center gap-1.5 rounded-full border border-cloud-200 bg-cloud-100 px-4 py-2 text-[13px] font-semibold text-cloud-700 transition-colors hover:bg-cloud-200"
+          >
+            <Mic className="size-3.5" strokeWidth={2.2} aria-hidden />
+            Talk it through with JADEN instead
+          </Link>
+        </li>
       </ul>
     </div>
   )
