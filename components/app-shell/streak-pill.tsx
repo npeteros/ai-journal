@@ -1,8 +1,18 @@
+'use client'
+
+import { useQuery } from '@tanstack/react-query'
 import { cn } from 'cn'
 
 import { FlameIcon } from '@/components/brand/icons'
+import { APP_TIME_ZONE } from '@/src/lib/app-time-zone'
+import { useTRPC } from '@/src/server/trpc/client'
 
-export function StreakPill({ days, className }: { days: number; className?: string }) {
+/** Current streak, hydrated from the layout's prefetch. Decorative, so a failed query shows 0. */
+export function StreakPill({ className }: { className?: string }) {
+  const trpc = useTRPC()
+  const { data } = useQuery(trpc.v1.entry.stats.queryOptions({ timeZone: APP_TIME_ZONE }))
+  const days = data?.currentStreak ?? 0
+
   return (
     <span
       className={cn(

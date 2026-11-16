@@ -6,16 +6,19 @@ import { JadenFor, JadenPerch, PLACEMENTS } from '@/components/jaden'
 import { EntryList } from '@/components/journal/entry-list'
 import { TodayBand } from '@/components/journal/today-band'
 import { Rise } from '@/components/motion'
-import { formatTodayOverline, greetingFor } from '@/src/lib/format'
+import { firstNameOf, formatTodayOverline, greetingFor } from '@/src/lib/format'
 import { todaysPrompt } from '@/src/lib/placeholder/entries'
-import { placeholderUser } from '@/src/lib/placeholder/user'
 import { PAGE_SIZE_DEFAULT } from '@/src/server/api/routers/v1/entry/schema'
+import { getServerSession } from '@/src/server/auth/session'
 import { getQueryClient, trpc } from '@/src/server/trpc/server'
 
 export const metadata: Metadata = { title: 'Journal' }
 
 export default async function JournalHomePage() {
   const jaden = PLACEMENTS.journalHome
+  // The (app) layout has already redirected when there is no session.
+  const session = await getServerSession()
+  const firstName = session ? firstNameOf(session.user.name) : null
 
   // Prefetch the first page of entries and the tag chips so the list renders without a loading
   // flash. Prefetch swallows errors, so a failure here surfaces as the list's error state instead.
@@ -45,7 +48,13 @@ export default async function JournalHomePage() {
             {formatTodayOverline()}
           </p>
           <h1 className="font-serif text-[32px] leading-[1.05] font-medium tracking-[-0.01em] text-neutral-900 lg:text-[40px]">
-            {greetingFor()}, <em className="text-amber-700 italic">{placeholderUser.name}.</em>
+            {firstName ? (
+              <>
+                {greetingFor()}, <em className="text-amber-700 italic">{firstName}.</em>
+              </>
+            ) : (
+              `${greetingFor()}.`
+            )}
           </h1>
         </Rise>
       </header>
@@ -55,7 +64,7 @@ export default async function JournalHomePage() {
       <Rise i={1} className="mt-[120px] flex flex-col md:mt-10">
         <div className="relative z-[3] h-0">
           <JadenPerch width={jaden.size} className="right-3 md:right-6">
-            <JadenFor placement="journalHome" vars={{ name: placeholderUser.name }} />
+            <JadenFor placement="journalHome" vars={{ name: firstName ?? 'there' }} />
           </JadenPerch>
         </div>
         <TodayBand

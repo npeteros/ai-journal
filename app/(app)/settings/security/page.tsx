@@ -7,12 +7,14 @@ import {
   SettingsSection,
   SettingsTitle,
 } from '@/components/settings/settings-ui'
-import { placeholderUser } from '@/src/lib/placeholder/user'
+import { getServerSession } from '@/src/server/auth/session'
 
 export const metadata: Metadata = { title: 'Security' }
 
 // Email + password only (passcode / passkey were dropped in favour of email/password auth).
-export default function SecuritySettingsPage() {
+export default async function SecuritySettingsPage() {
+  const session = await getServerSession()
+
   return (
     <>
       <SettingsTitle>Security</SettingsTitle>
@@ -24,7 +26,7 @@ export default function SecuritySettingsPage() {
             </RowIcon>
           }
           label="Email"
-          value={placeholderUser.email}
+          value={session?.user.email}
         />
         <SettingsRow
           icon={

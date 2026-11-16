@@ -124,6 +124,12 @@ export function useEntryAutosave(entry?: SavedEntry, delayMs = AUTOSAVE_DELAY_MS
     [queryClient, trpc, invalidateEntryList],
   )
 
+  /** Creating or deleting an entry can change the streak in the app shell. */
+  const invalidateStats = useCallback(
+    () => queryClient.invalidateQueries(trpc.v1.entry.stats.pathFilter()),
+    [queryClient, trpc],
+  )
+
   const saveOnce = useCallback(
     async (explicit: boolean) => {
       if (closedRef.current) return
@@ -155,6 +161,7 @@ export function useEntryAutosave(entry?: SavedEntry, delayMs = AUTOSAVE_DELAY_MS
           // replaceState (not router.replace) keeps this editor mounted, so focus and the
           // cursor stay put while the user keeps typing.
           window.history.replaceState(null, '', `/journal/${created.id}`)
+          void invalidateStats()
           serverTitle = created.title
           savedAt = new Date(created.updatedAt).getTime()
         } else {
@@ -194,7 +201,7 @@ export function useEntryAutosave(entry?: SavedEntry, delayMs = AUTOSAVE_DELAY_MS
         setError(getApiErrorMessage(caught))
       }
     },
-    [createEntry, updateEntry, invalidateEntryList, waitForAnalysis],
+    [createEntry, updateEntry, invalidateEntryList, invalidateStats, waitForAnalysis],
   )
 
   /** Saves now (cancelling the debounce). Queued behind any save already in flight. */
@@ -268,13 +275,14 @@ export function useEntryAutosave(entry?: SavedEntry, delayMs = AUTOSAVE_DELAY_MS
       await deleteEntry({ id })
       queryClient.removeQueries(trpc.v1.entry.findOne.queryFilter({ id }))
       void invalidateEntryList()
+      void invalidateStats()
       router.replace('/journal')
     } catch (caught) {
       closedRef.current = false
       setDeleting(false)
       setError(getApiErrorMessage(caught))
     }
-  }, [deleteEntry, invalidateEntryList, queryClient, router, trpc])
+  }, [deleteEntry, invalidateEntryList, invalidateStats, queryClient, router, trpc])
 
   return {
     draft,

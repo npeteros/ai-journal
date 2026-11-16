@@ -3,14 +3,13 @@ import Link from 'next/link'
 
 import { Page } from '@/components/app-shell/page'
 import { JournalChat } from '@/components/chat/journal-chat'
-import { auth } from '@/src/server/auth/auth'
-import { headers } from 'next/headers'
+import { getServerSession } from '@/src/server/auth/session'
 import { redirect } from 'next/navigation'
 
 export const metadata: Metadata = { title: 'Chat' }
 
 export default async function ChatPage() {
-  const session = await auth.api.getSession({ headers: await headers() })
+  const session = await getServerSession()
   if (!session) redirect('/login')
 
   return (
