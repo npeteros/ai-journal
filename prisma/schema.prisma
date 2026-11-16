@@ -187,3 +187,27 @@ model EntryTag {
   @@index([tagId])
   @@map("entry_tag")
 }
+model Framework {
+  id          String    @id @default(uuid()) @db.Uuid
+  slug        String    @unique
+  title       String
+  description String
+  minutes     Int
+  icon        String
+  prompts     Json      // { prompt: string, sample?: string }[]
+  userId      String?   // null for built-in templates
+  user        User?     @relation(fields: [userId], references: [id])
+  entries     Entry[]
+  createdAt   DateTime  @default(now()) @db.Timestamptz
+  updatedAt   DateTime  @updatedAt @db.Timestamptz
+  deletedAt   DateTime? @db.Timestamptz
+
+  @@index([userId])
+  @@map("framework")
+}
+
+// In model Entry, add:
+//   frameworkId String?    @db.Uuid
+//   framework   Framework? @relation(fields: [frameworkId], references: [id])
+// In model User, add:
+//   frameworks  Framework[]
