@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   GrowthSuggestions,
@@ -157,7 +157,10 @@ describe('Insight report UI', () => {
   })
 
   it('confirms server eligibility and re-enables refresh after cooldown expiry without a reload', async () => {
-    const nextManualRefreshAt = new Date(Date.now() + 75).toISOString()
+    // Fake clock (still ticking, so Testing Library's polling works): the cooldown can't run out
+    // before the first render on a slow machine, which skipped the re-check and flaked.
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    const nextManualRefreshAt = new Date(Date.now() + 60_000).toISOString()
     mocks.report.mockResolvedValue(response({ nextManualRefreshAt }))
 
     renderReport()
@@ -165,6 +168,9 @@ describe('Insight report UI', () => {
     expect(
       await screen.findByRole('button', { name: 'Refresh available tomorrow' }),
     ).toHaveProperty('disabled', true)
+    expect(mocks.report).toHaveBeenCalledOnce()
+
+    await act(() => vi.advanceTimersByTimeAsync(60_000))
     await waitFor(() => expect(mocks.report).toHaveBeenCalledTimes(2))
     expect(screen.getByRole('button', { name: 'Refresh insights' })).toHaveProperty(
       'disabled',

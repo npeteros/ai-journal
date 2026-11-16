@@ -6,6 +6,14 @@ import { logger } from '../observability'
 
 const DEFAULT_WINDOW_SECONDS = 3600
 const DEFAULT_MAX_CALLS = 50
+const DEFAULT_VOICE_WINDOW_SECONDS = 86_400
+const DEFAULT_VOICE_MAX_SESSIONS = 3
+
+/** `agent` value of voice session rows. They have their own budget, outside the shared AI limit. */
+export const VOICE_SESSION_AGENT = 'voice-session'
+export const VOICE_SESSION_MODEL = 'openai/gpt-live-1'
+/** Longest voice session we record, matching the client-side session cap. */
+export const VOICE_SESSION_MAX_SECONDS = 600
 
 export type AiUsageReservation = {
   /** Null for system calls (e.g. workflows with no signed-in user), which skip the rate limit. */
@@ -27,8 +35,38 @@ export type AiRateLimitConfig = {
   maxCalls: number
 }
 
+export type VoiceSessionOutcome = {
+  usageId: string
+  /** Owner of the row; only they can finalize it. */
+  userId: string
+  /** Session length reported by the client, capped at VOICE_SESSION_MAX_SECONDS. */
+  seconds: number
+  success: boolean
+}
+
 type AiUsageDb = Pick<PrismaClient, '$transaction'> & {
-  aiUsageLog: Pick<PrismaClient['aiUsageLog'], 'update'>
+  aiUsageLog: Pick<PrismaClient['aiUsageLog'], 'update' | 'updateMany'>
+}
+
+type ReserveLimit = {
+  windowSeconds: number
+  maxCalls: number
+  /** Which of the user's rows count toward this limit. */
+  agentFilter: { agent: string } | { agent: { not: string } }
+  message: string
+}
+
+/**
+ * Users listed in AI_RATE_LIMIT_EXEMPT_USER_IDS (comma-separated better-auth user IDs, e.g. a demo
+ * account) skip the shared AI limit and the voice budget. Their calls are still logged.
+ * Read on every call, like the limits themselves.
+ */
+function isRateLimitExempt(userId: string): boolean {
+  const ids = (process.env.AI_RATE_LIMIT_EXEMPT_USER_IDS ?? '')
+    .split(',')
+    .map((id) => id.trim())
+    .filter(Boolean)
+  return ids.includes(userId)
 }
 
 function readPositiveInt(value: string | undefined, fallback: number): number {
@@ -57,33 +95,75 @@ export class AiUsageService {
     }
   }
 
+  /** Voice sessions have their own budget (default 3 per rolling 24 hours). */
+  getVoiceConfig(): AiRateLimitConfig {
+    return {
+      windowSeconds: readPositiveInt(
+        process.env.VOICE_SESSION_WINDOW_SECONDS,
+        DEFAULT_VOICE_WINDOW_SECONDS,
+      ),
+      maxCalls: readPositiveInt(process.env.VOICE_SESSION_MAX, DEFAULT_VOICE_MAX_SESSIONS),
+    }
+  }
+
   /**
    * Checks the rate limit and inserts the call's usage row before the model is called,
    * so in-flight calls count toward the limit. Returns the row ID for `finalize()`.
    * Throws TOO_MANY_REQUESTS when the user has used up their calls for the current window.
+   * Voice session rows don't count toward this limit; they have their own budget.
    *
    * The row starts as a failed call with no tokens, which is what remains if the call
    * never finalizes (e.g. the process dies mid-stream).
    */
   async reserve({ userId, agent, model }: AiUsageReservation): Promise<string> {
     const { windowSeconds, maxCalls } = this.getConfig()
-    const windowStart = new Date(Date.now() - windowSeconds * 1000)
+    return this.reserveRow(
+      { userId, agent, model },
+      {
+        windowSeconds,
+        maxCalls,
+        agentFilter: { agent: { not: VOICE_SESSION_AGENT } },
+        message: `AI rate limit exceeded: ${maxCalls} calls per ${windowSeconds}s`,
+      },
+    )
+  }
+
+  /**
+   * Checks the user's voice session budget and inserts the session's usage row before the
+   * realtime session is created. Returns the row ID for `finalizeVoiceSession()`.
+   * Throws TOO_MANY_REQUESTS when the user has used up their sessions for the current window.
+   */
+  async reserveVoiceSession(userId: string): Promise<string> {
+    const { windowSeconds, maxCalls } = this.getVoiceConfig()
+    return this.reserveRow(
+      { userId, agent: VOICE_SESSION_AGENT, model: VOICE_SESSION_MODEL },
+      {
+        windowSeconds,
+        maxCalls,
+        agentFilter: { agent: VOICE_SESSION_AGENT },
+        message: `Voice session limit exceeded: ${maxCalls} sessions per ${windowSeconds}s`,
+      },
+    )
+  }
+
+  private async reserveRow(
+    { userId, agent, model }: AiUsageReservation,
+    limit: ReserveLimit,
+  ): Promise<string> {
+    const windowStart = new Date(Date.now() - limit.windowSeconds * 1000)
 
     return this.db.$transaction(async (tx) => {
-      // System calls (no user) are logged but not rate-limited.
-      if (userId !== null) {
+      // System calls (no user) and exempt users are logged but not rate-limited.
+      if (userId !== null && !isRateLimitExempt(userId)) {
         // Serialises reservations per user so concurrent requests can't all pass the count.
         await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${userId}))`
 
         const count = await tx.aiUsageLog.count({
-          where: { userId, createdAt: { gte: windowStart } },
+          where: { userId, createdAt: { gte: windowStart }, ...limit.agentFilter },
         })
 
-        if (count >= maxCalls) {
-          throw new TRPCError({
-            code: 'TOO_MANY_REQUESTS',
-            message: `AI rate limit exceeded: ${maxCalls} calls per ${windowSeconds}s`,
-          })
+        if (count >= limit.maxCalls) {
+          throw new TRPCError({ code: 'TOO_MANY_REQUESTS', message: limit.message })
         }
       }
 
@@ -109,6 +189,30 @@ export class AiUsageService {
       await this.db.aiUsageLog.update({ where: { id }, data: outcome })
     } catch (error) {
       this.log.error('Failed to record AI usage', { error, usageId: id })
+    }
+  }
+
+  /**
+   * Records a voice session's length (in `latencyMs`; voice has no token counts) on its reserved
+   * row. Only the row's owner can finalize it, and only once: the first report wins. Returns
+   * whether a row was updated. Never throws.
+   */
+  async finalizeVoiceSession({
+    usageId,
+    userId,
+    seconds,
+    success,
+  }: VoiceSessionOutcome): Promise<boolean> {
+    const cappedSeconds = Math.min(Math.max(seconds, 0), VOICE_SESSION_MAX_SECONDS)
+    try {
+      const { count } = await this.db.aiUsageLog.updateMany({
+        where: { id: usageId, userId, agent: VOICE_SESSION_AGENT, latencyMs: 0 },
+        data: { latencyMs: Math.round(cappedSeconds * 1000), success },
+      })
+      return count > 0
+    } catch (error) {
+      this.log.error('Failed to record voice session usage', { error, usageId })
+      return false
     }
   }
 }

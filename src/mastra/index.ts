@@ -7,6 +7,8 @@ import { entryAnalysisAgent } from './agents/entry-analysis-agent'
 import { entryTitleAgent } from './agents/entry-title-agent'
 import { insightsAgent } from './agents/insights-agent'
 import { journalCompanionAgent } from './agents/journal-companion-agent'
+import { voiceCompanionAgent } from './agents/voice-companion-agent'
+import { voiceDraftAgent } from './agents/voice-draft-agent'
 import {
   answerRelevancyScorer,
   entryTitleFormatScorer,
@@ -61,7 +63,14 @@ if (isDev) globalForDuckDB.duckDBObservability ??= openObservabilityStore()
 const observabilityStore = isDev ? await globalForDuckDB.duckDBObservability : undefined
 
 export const mastra = new Mastra({
-  agents: { journalCompanionAgent, entryTitleAgent, entryAnalysisAgent, insightsAgent },
+  agents: {
+    journalCompanionAgent,
+    entryTitleAgent,
+    entryAnalysisAgent,
+    insightsAgent,
+    voiceCompanionAgent,
+    voiceDraftAgent,
+  },
   tools: { searchEntriesTool, getEntryTool },
   workflows: { entryAnalysisWorkflow, insightsWorkflow },
   scorers: {

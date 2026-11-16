@@ -1,21 +1,17 @@
 'use client'
 
+import Link from 'next/link'
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { useChat } from '@ai-sdk/react'
-import { APICallError, DefaultChatTransport, isTextUIPart, isToolUIPart, type UIMessage } from 'ai'
+import { DefaultChatTransport, isTextUIPart, isToolUIPart, type UIMessage } from 'ai'
 import { AnimatePresence, motion } from 'motion/react'
-import { ArrowRight, BookOpen } from 'lucide-react'
+import { ArrowRight, BookOpen, Mic } from 'lucide-react'
 import { cn } from 'cn'
 
 import { JadenFor, JadenPerch, PLACEMENTS, belowEdge, heightFor } from '@/components/jaden'
 import { SPRING } from '@/components/motion'
 import { AiLabel, Orb } from '@/components/ui/ai'
-import {
-  CHAT_API,
-  CHAT_CONTEXT_MESSAGES,
-  CHAT_RATE_LIMITED_CODE,
-  CHAT_RATE_LIMITED_MESSAGE,
-} from '@/src/lib/chat'
+import { CHAT_API, CHAT_CONTEXT_MESSAGES, chatRateLimitMessage } from '@/src/lib/chat'
 import { collectEntryRefs, splitCitations, type EntryRef } from './citations'
 import { EntryPreviewPanel } from './entry-preview-panel'
 
@@ -51,19 +47,6 @@ function getText(message: UIMessage) {
     .join('')
 }
 
-function isRateLimited(error: Error | undefined): string | null {
-  if (!error || !APICallError.isInstance(error) || error.statusCode !== 429) return null
-  try {
-    const body: unknown = JSON.parse(error.responseBody ?? '')
-    if (typeof body === 'object' && body !== null && 'code' in body && 'error' in body) {
-      if (body.code === CHAT_RATE_LIMITED_CODE && typeof body.error === 'string') return body.error
-    }
-  } catch {
-    // Non-JSON body: fall back to the default copy.
-  }
-  return CHAT_RATE_LIMITED_MESSAGE
-}
-
 /** "Chat with your journal": streams answers from the journal companion agent. */
 export function JournalChat() {
   const [draft, setDraft] = useState('')
@@ -74,7 +57,7 @@ export function JournalChat() {
 
   const busy = status === 'submitted' || status === 'streaming'
   const refs = useMemo(() => collectEntryRefs(messages), [messages])
-  const rateLimitMessage = isRateLimited(error)
+  const rateLimitMessage = chatRateLimitMessage(error)
 
   const last = messages.at(-1)
   const lastText = last ? getText(last) : ''
@@ -222,6 +205,14 @@ export function JournalChat() {
             className="h-[52px] w-full rounded-[26px] border border-neutral-200 bg-surface px-5 text-[15px] text-neutral-900 outline-none placeholder:text-neutral-400 focus:border-neutral-400"
           />
         </div>
+        <Link
+          href="/journal/voice"
+          aria-label="Talk with JADEN instead (voice journaling)"
+          title="Talk with JADEN"
+          className="flex size-[52px] shrink-0 items-center justify-center rounded-full border border-cloud-200 bg-cloud-100 text-cloud-700 transition-colors hover:bg-cloud-200"
+        >
+          <Mic className="size-5" strokeWidth={2.2} aria-hidden />
+        </Link>
         <button
           type="submit"
           aria-label="Send"
@@ -252,12 +243,21 @@ function StarterQuestions({ onPick }: { onPick: (question: string) => void }) {
             <button
               type="button"
               onClick={() => onPick(question)}
-              className="rounded-full border border-neutral-200 bg-surface px-4 py-2 text-left text-[13px] font-medium text-neutral-700 transition-colors hover:border-neutral-400"
+              className="rounded-full border border-neutral-200 bg-surface px-4 py-2 text-left text-[13px] font-medium text-neutral-900 transition-colors hover:border-neutral-400"
             >
               {question}
             </button>
           </li>
         ))}
+        <li>
+          <Link
+            href="/journal/voice"
+            className="inline-flex items-center gap-1.5 rounded-full border border-cloud-200 bg-cloud-100 px-4 py-2 text-[13px] font-semibold text-cloud-700 transition-colors hover:bg-cloud-200"
+          >
+            <Mic className="size-3.5" strokeWidth={2.2} aria-hidden />
+            Talk it through with JADEN instead
+          </Link>
+        </li>
       </ul>
     </div>
   )
