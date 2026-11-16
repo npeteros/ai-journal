@@ -85,4 +85,19 @@ describe('Mastra registration', () => {
       insightsWorkflow: { id: 'insights-workflow' },
     })
   })
+
+  it('does not load @mastra/duckdb in production', async () => {
+    vi.resetModules()
+    vi.stubEnv('NODE_ENV', 'production')
+    vi.doMock('@mastra/duckdb', () => {
+      throw new Error('libduckdb.so: cannot open shared object file')
+    })
+    try {
+      await expect(import('../index')).resolves.toHaveProperty('mastra')
+      expect(mocks.config).not.toHaveProperty('observability')
+    } finally {
+      vi.doUnmock('@mastra/duckdb')
+      vi.unstubAllEnvs()
+    }
+  })
 })

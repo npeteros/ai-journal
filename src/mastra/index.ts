@@ -1,7 +1,6 @@
 import { isMainThread } from 'node:worker_threads'
 import { Mastra } from '@mastra/core/mastra'
 import { LibSQLStore } from '@mastra/libsql'
-import { DuckDBStore } from '@mastra/duckdb'
 import { MastraCompositeStore, type StorageDomains } from '@mastra/core/storage'
 import { entryAnalysisAgent } from './agents/entry-analysis-agent'
 import { entryTitleAgent } from './agents/entry-title-agent'
@@ -38,8 +37,10 @@ const isNextWorker =
 
 // Observability (tracing) is dev-only: traces go to mastra.duckdb for Studio.
 // Production and `next build` omit it, so Mastra falls back to NoOpObservability
-// and never opens DuckDB.
+// and never opens DuckDB. The import is dynamic so production never loads the
+// package's native bindings (libduckdb.so), which deployments don't ship.
 async function openObservabilityStore(): Promise<StorageDomains['observability']> {
+  const { DuckDBStore } = await import('@mastra/duckdb')
   if (!isNextWorker) {
     const fileStore = new DuckDBStore()
     try {
