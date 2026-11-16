@@ -25,6 +25,7 @@ model User {
   aiUsageLogs   AiUsageLog[]
   entries       Entry[]
   tags          Tag[]
+  frameworks    Framework[]
   insightReport InsightReport?
 
   @@unique([email])
@@ -96,18 +97,20 @@ model AiUsageLog {
 }
 
 model Entry {
-  id        String         @id @default(uuid()) @db.Uuid
-  userId    String
-  user      User           @relation(fields: [userId], references: [id], onDelete: Cascade)
-  title     String
-  body      String
-  writtenAt DateTime       @default(now()) @db.Timestamptz
-  entryDate DateTime       @db.Date
-  createdAt DateTime       @default(now()) @db.Timestamptz
-  updatedAt DateTime       @updatedAt @db.Timestamptz
-  deletedAt DateTime?      @db.Timestamptz
-  tags      EntryTag[]
-  analysis  EntryAnalysis?
+  id          String         @id @default(uuid()) @db.Uuid
+  userId      String
+  user        User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  frameworkId String?        @db.Uuid
+  framework   Framework?     @relation(fields: [frameworkId], references: [id], onDelete: SetNull)
+  title       String
+  body        String
+  writtenAt   DateTime       @default(now()) @db.Timestamptz
+  entryDate   DateTime       @db.Date
+  createdAt   DateTime       @default(now()) @db.Timestamptz
+  updatedAt   DateTime       @updatedAt @db.Timestamptz
+  deletedAt   DateTime?      @db.Timestamptz
+  tags        EntryTag[]
+  analysis    EntryAnalysis?
 
   @@index([userId, writtenAt])
   @@index([userId, entryDate])
@@ -194,8 +197,8 @@ model Framework {
   description String
   minutes     Int
   icon        String
-  prompts     Json      // { prompt: string, sample?: string }[]
-  userId      String?   // null for built-in templates
+  prompts     Json
+  userId      String?
   user        User?     @relation(fields: [userId], references: [id])
   entries     Entry[]
   createdAt   DateTime  @default(now()) @db.Timestamptz
@@ -205,9 +208,3 @@ model Framework {
   @@index([userId])
   @@map("framework")
 }
-
-// In model Entry, add:
-//   frameworkId String?    @db.Uuid
-//   framework   Framework? @relation(fields: [frameworkId], references: [id])
-// In model User, add:
-//   frameworks  Framework[]
