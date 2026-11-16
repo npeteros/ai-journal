@@ -7,7 +7,9 @@ import { getQueryClient, trpc } from '@/src/server/trpc/server'
 
 export const metadata: Metadata = { title: 'New framework' }
 
-export default async function FrameworkBuilderPage(props: PageProps<'/frameworks'>) {
+export default async function FrameworkBuilderPage(props: {
+  searchParams: Promise<{ from?: string | string[] }>
+}) {
   const { from } = await props.searchParams
   const source =
     typeof from === 'string'

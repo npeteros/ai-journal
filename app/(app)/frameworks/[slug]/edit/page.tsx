@@ -8,7 +8,7 @@ import { getQueryClient, trpc } from '@/src/server/trpc/server'
 
 export const metadata: Metadata = { title: 'Edit framework' }
 
-export default async function FrameworkEditPage(props: PageProps<'/frameworks/[slug]/edit'>) {
+export default async function FrameworkEditPage(props: { params: Promise<{ slug: string }> }) {
   const { slug } = await props.params
   const framework = await getQueryClient()
     .fetchQuery(trpc.v1.framework.findOneBySlug.queryOptions({ slug }))
