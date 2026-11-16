@@ -3,14 +3,16 @@ import Link from 'next/link'
 import { Plus } from 'lucide-react'
 
 import { Page, PageHeader } from '@/components/app-shell/page'
-import { FrameworkIcon } from '@/components/frameworks/framework-icon'
+import { FrameworkIcon, isFrameworkIconName } from '@/components/frameworks/framework-icon'
 import { Rise } from '@/components/motion'
 import { Card } from '@/components/ui/card'
-import { placeholderFrameworks } from '@/src/lib/placeholder/frameworks'
+import { getQueryClient, trpc } from '@/src/server/trpc/server'
 
 export const metadata: Metadata = { title: 'Frameworks' }
 
-export default function FrameworksPage() {
+export default async function FrameworksPage() {
+  const frameworks = await getQueryClient().fetchQuery(trpc.v1.framework.findMany.queryOptions())
+
   return (
     <Page tone="meadow">
       <PageHeader
@@ -19,15 +21,15 @@ export default function FrameworksPage() {
       />
 
       <ul className="mt-2 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:gap-5 xl:grid-cols-3">
-        {placeholderFrameworks.map((f, i) => (
-          <li key={f.slug}>
+        {frameworks.map((f, i) => (
+          <li key={f.id}>
             <Rise i={i} className="h-full">
               <Link
                 href={`/frameworks/${f.slug}`}
                 className="block h-full rounded-2xl outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
               >
                 <Card hover className="flex h-full min-h-[176px] flex-col gap-3.5">
-                  <FrameworkIcon name={f.icon} />
+                  {isFrameworkIconName(f.icon) && <FrameworkIcon name={f.icon} />}
                   <div className="flex flex-col gap-1">
                     <h2 className="font-serif text-[17px] leading-[1.3] font-semibold text-neutral-900">
                       {f.title}
@@ -44,7 +46,7 @@ export default function FrameworksPage() {
           </li>
         ))}
         <li>
-          <Rise i={placeholderFrameworks.length} className="h-full">
+          <Rise i={frameworks.length} className="h-full">
             <Link
               href="/frameworks/builder"
               className="flex h-full min-h-[176px] flex-col items-center justify-center gap-2.5 rounded-2xl border-[1.5px] border-dashed border-sage-200 p-[22px] text-sage-700 transition-colors outline-none hover:bg-sage-100/60 focus-visible:ring-2 focus-visible:ring-ring/50"

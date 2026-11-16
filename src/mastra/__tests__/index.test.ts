@@ -26,6 +26,10 @@ vi.mock('../agents/insights-agent', () => ({ insightsAgent: { id: 'insights-agen
 vi.mock('../agents/journal-companion-agent', () => ({
   journalCompanionAgent: { id: 'journal-companion-agent' },
 }))
+vi.mock('../agents/voice-companion-agent', () => ({
+  voiceCompanionAgent: { id: 'voice-companion-agent' },
+}))
+vi.mock('../agents/voice-draft-agent', () => ({ voiceDraftAgent: { id: 'voice-draft-agent' } }))
 vi.mock('../scorers', () => ({
   answerRelevancyScorer: {},
   toxicityScorer: {},
@@ -57,6 +61,8 @@ describe('Mastra registration', () => {
         entryTitleAgent: { id: 'entry-title-agent' },
         entryAnalysisAgent: { id: 'entry-analysis-agent' },
         insightsAgent: { id: 'insights-agent' },
+        voiceCompanionAgent: { id: 'voice-companion-agent' },
+        voiceDraftAgent: { id: 'voice-draft-agent' },
       },
       tools: {
         searchEntriesTool: { id: 'search-entries' },
@@ -78,5 +84,20 @@ describe('Mastra registration', () => {
       entryAnalysisWorkflow: { id: 'entry-analysis-workflow' },
       insightsWorkflow: { id: 'insights-workflow' },
     })
+  })
+
+  it('does not load @mastra/duckdb in production', async () => {
+    vi.resetModules()
+    vi.stubEnv('NODE_ENV', 'production')
+    vi.doMock('@mastra/duckdb', () => {
+      throw new Error('libduckdb.so: cannot open shared object file')
+    })
+    try {
+      await expect(import('../index')).resolves.toHaveProperty('mastra')
+      expect(mocks.config).not.toHaveProperty('observability')
+    } finally {
+      vi.doUnmock('@mastra/duckdb')
+      vi.unstubAllEnvs()
+    }
   })
 })

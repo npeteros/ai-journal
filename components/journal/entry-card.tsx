@@ -17,6 +17,8 @@ type EntryCardProps = {
     tags: string[]
     /** The entry's analyzed mood (`entry.analysis.mood`); no spine is drawn until it has one. */
     mood?: Mood
+    /** Title of the framework a guided entry was written with. */
+    framework?: string
   }
   /** Reference date for "Today"; defaults to the placeholder date, so real entries pass `new Date()`. */
   now?: Date
@@ -29,7 +31,7 @@ type EntryCardProps = {
   children?: ReactNode
 }
 
-/** Entry card: date overline, serif title, 2–3 line excerpt, tags, coloured mood spine. */
+/** Entry card: date overline (plus framework label), serif title, 2–3 line excerpt, tags, coloured mood spine. */
 export function EntryCard({ entry, href, now, className, spine = true, children }: EntryCardProps) {
   const body = (
     <Card
@@ -43,6 +45,7 @@ export function EntryCard({ entry, href, now, className, spine = true, children 
         className="text-[11px] leading-none font-semibold tracking-[0.05em] text-neutral-400 uppercase"
       >
         {formatEntryDate(entry.writtenAt, now)}
+        {entry.framework && <span className="text-sage-700"> · {entry.framework}</span>}
       </p>
       <h3 className="font-serif text-[18px] leading-[1.3] font-semibold text-neutral-900 lg:text-[19px]">
         {entry.title}

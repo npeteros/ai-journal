@@ -8,6 +8,8 @@ export const entryInclude = {
     select: { tag: { select: { id: true, name: true } } },
     orderBy: { tag: { name: 'asc' } },
   },
+  // Guided entries keep their framework's title for the card label, even if it's later deleted.
+  framework: { select: { title: true } },
   // Internal bookkeeping (bodyHash, model) is left out of the API response.
   analysis: {
     select: {

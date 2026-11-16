@@ -1,12 +1,13 @@
 import { isMainThread } from 'node:worker_threads'
 import { Mastra } from '@mastra/core/mastra'
 import { LibSQLStore } from '@mastra/libsql'
-import { DuckDBStore } from '@mastra/duckdb'
 import { MastraCompositeStore, type StorageDomains } from '@mastra/core/storage'
 import { entryAnalysisAgent } from './agents/entry-analysis-agent'
 import { entryTitleAgent } from './agents/entry-title-agent'
 import { insightsAgent } from './agents/insights-agent'
 import { journalCompanionAgent } from './agents/journal-companion-agent'
+import { voiceCompanionAgent } from './agents/voice-companion-agent'
+import { voiceDraftAgent } from './agents/voice-draft-agent'
 import {
   answerRelevancyScorer,
   entryTitleFormatScorer,
@@ -36,8 +37,10 @@ const isNextWorker =
 
 // Observability (tracing) is dev-only: traces go to mastra.duckdb for Studio.
 // Production and `next build` omit it, so Mastra falls back to NoOpObservability
-// and never opens DuckDB.
+// and never opens DuckDB. The import is dynamic so production never loads the
+// package's native bindings (libduckdb.so), which deployments don't ship.
 async function openObservabilityStore(): Promise<StorageDomains['observability']> {
+  const { DuckDBStore } = await import('@mastra/duckdb')
   if (!isNextWorker) {
     const fileStore = new DuckDBStore()
     try {
@@ -61,7 +64,14 @@ if (isDev) globalForDuckDB.duckDBObservability ??= openObservabilityStore()
 const observabilityStore = isDev ? await globalForDuckDB.duckDBObservability : undefined
 
 export const mastra = new Mastra({
-  agents: { journalCompanionAgent, entryTitleAgent, entryAnalysisAgent, insightsAgent },
+  agents: {
+    journalCompanionAgent,
+    entryTitleAgent,
+    entryAnalysisAgent,
+    insightsAgent,
+    voiceCompanionAgent,
+    voiceDraftAgent,
+  },
   tools: { searchEntriesTool, getEntryTool },
   workflows: { entryAnalysisWorkflow, insightsWorkflow },
   scorers: {
