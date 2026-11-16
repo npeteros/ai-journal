@@ -56,6 +56,19 @@ type ReserveLimit = {
   message: string
 }
 
+/**
+ * Users listed in AI_RATE_LIMIT_EXEMPT_USER_IDS (comma-separated better-auth user IDs, e.g. a demo
+ * account) skip the shared AI limit and the voice budget. Their calls are still logged.
+ * Read on every call, like the limits themselves.
+ */
+function isRateLimitExempt(userId: string): boolean {
+  const ids = (process.env.AI_RATE_LIMIT_EXEMPT_USER_IDS ?? '')
+    .split(',')
+    .map((id) => id.trim())
+    .filter(Boolean)
+  return ids.includes(userId)
+}
+
 function readPositiveInt(value: string | undefined, fallback: number): number {
   const parsed = Number.parseInt(value ?? '', 10)
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback
@@ -140,8 +153,8 @@ export class AiUsageService {
     const windowStart = new Date(Date.now() - limit.windowSeconds * 1000)
 
     return this.db.$transaction(async (tx) => {
-      // System calls (no user) are logged but not rate-limited.
-      if (userId !== null) {
+      // System calls (no user) and exempt users are logged but not rate-limited.
+      if (userId !== null && !isRateLimitExempt(userId)) {
         // Serialises reservations per user so concurrent requests can't all pass the count.
         await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${userId}))`
 

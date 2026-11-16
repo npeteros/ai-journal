@@ -231,6 +231,36 @@ describe('AiUsageService', () => {
     })
   })
 
+  describe('rate limit exemption', () => {
+    it.each([
+      ['the shared limit', (service: AiUsageService) => service.reserve(reservation)],
+      ['the voice budget', (service: AiUsageService) => service.reserveVoiceSession('user-1')],
+    ])('lets an exempt user past %s while still logging the call', async (_label, call) => {
+      vi.stubEnv('AI_RATE_LIMIT_EXEMPT_USER_IDS', ' demo-user , user-1 ')
+      const { tx, service } = setup()
+      tx.aiUsageLog.count.mockResolvedValue(1_000)
+
+      await expect(call(service)).resolves.toBe('usage-1')
+      expect(tx.aiUsageLog.count).not.toHaveBeenCalled()
+      expect(tx.aiUsageLog.create).toHaveBeenCalledOnce()
+    })
+
+    it.each([
+      ['unset', undefined],
+      ['empty', ''],
+      ['another user', 'demo-user'],
+      ['a partial ID', 'user'],
+    ])('still limits everyone else when the exempt list is %s', async (_label, value) => {
+      vi.stubEnv('AI_RATE_LIMIT_EXEMPT_USER_IDS', value)
+      const { tx, service } = setup()
+      tx.aiUsageLog.count.mockResolvedValue(1_000)
+
+      await expect(service.reserve(reservation)).rejects.toMatchObject({
+        code: 'TOO_MANY_REQUESTS',
+      })
+    })
+  })
+
   describe('finalizeVoiceSession', () => {
     const voiceOutcome = { usageId: 'usage-1', userId: 'user-1', seconds: 91.4, success: true }
 
