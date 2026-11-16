@@ -47,4 +47,13 @@ describe('getApiErrorMessage', () => {
     expect(getApiErrorMessage({ message: 'not json', data: { code: 'BAD_REQUEST' } })).toBe(generic)
     expect(getApiErrorMessage(undefined)).toBe(generic)
   })
+
+  it('explains the AI usage limit instead of a generic error', () => {
+    expect(
+      getApiErrorMessage({
+        message: 'AI rate limit exceeded',
+        data: { code: 'TOO_MANY_REQUESTS' },
+      }),
+    ).toMatch(/reached your limit for JADEN/)
+  })
 })

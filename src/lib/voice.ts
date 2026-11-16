@@ -4,6 +4,9 @@ export const VOICE_SESSION_API = '/api/voice/session'
 export const VOICE_SESSION_END_API = '/api/voice/session/end'
 export const VOICE_CHAT_API = '/api/voice/chat'
 
+/** Most recent messages the typing fallback sends per turn (the whole conversation for a 10-minute session). */
+export const VOICE_CHAT_CONTEXT_MESSAGES = 60
+
 /** Client-side cap on a spoken session. The server records at most this much per session. */
 export const VOICE_MAX_SECONDS = 600
 

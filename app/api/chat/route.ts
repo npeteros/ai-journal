@@ -1,5 +1,5 @@
 import { handleChatStream } from '@mastra/ai-sdk'
-import { createUIMessageStreamResponse, validateUIMessages } from 'ai'
+import { createUIMessageStreamResponse } from 'ai'
 import { NextResponse } from 'next/server'
 
 import { mastra } from '@/src/mastra'
@@ -13,32 +13,13 @@ import {
   type ChatErrorBody,
 } from '@/src/lib/chat'
 import { auth } from '@/src/server/auth/auth'
-
-/**
- * Chat is stateless: nothing is stored server-side, so the client sends the conversation.
- * Only the most recent turns are kept, only user/assistant roles are accepted (no
- * client-supplied system prompts), and the newest message must come from the user.
- */
-async function parseMessages(req: Request) {
-  try {
-    const body: unknown = await req.json()
-    if (typeof body !== 'object' || body === null || !('messages' in body)) return null
-    if (!Array.isArray(body.messages) || body.messages.length === 0) return null
-    const messages = await validateUIMessages({
-      messages: body.messages.slice(-CHAT_CONTEXT_MESSAGES),
-    })
-    if (!messages.every((m) => m.role === 'user' || m.role === 'assistant')) return null
-    return messages.at(-1)?.role === 'user' ? messages : null
-  } catch {
-    return null
-  }
-}
+import { parseChatMessages } from '@/src/server/chat/parseChatMessages'
 
 export async function POST(req: Request) {
   const session = await auth.api.getSession({ headers: req.headers })
   if (!session) return new NextResponse(null, { status: 401 })
 
-  const messages = await parseMessages(req)
+  const messages = await parseChatMessages(req, CHAT_CONTEXT_MESSAGES)
   if (!messages) {
     return NextResponse.json<ChatErrorBody>({ error: 'Invalid messages' }, { status: 400 })
   }

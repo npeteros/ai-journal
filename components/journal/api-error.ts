@@ -1,3 +1,4 @@
+import { CHAT_RATE_LIMITED_MESSAGE } from '@/src/lib/chat'
 import {
   BODY_MAX_LENGTH,
   TAG_NAME_MAX_LENGTH,
@@ -46,6 +47,7 @@ export function getApiErrorMessage(error: unknown): string {
 
   if (code === 'UNAUTHORIZED') return 'Your session has expired. Please sign in again.'
   if (code === 'NOT_FOUND') return 'This entry no longer exists.'
+  if (code === 'TOO_MANY_REQUESTS') return CHAT_RATE_LIMITED_MESSAGE
 
   if (code === 'BAD_REQUEST' && typeof message === 'string') {
     const issues = parseIssues(message)

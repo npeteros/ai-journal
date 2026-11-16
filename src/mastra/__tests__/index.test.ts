@@ -26,6 +26,10 @@ vi.mock('../agents/insights-agent', () => ({ insightsAgent: { id: 'insights-agen
 vi.mock('../agents/journal-companion-agent', () => ({
   journalCompanionAgent: { id: 'journal-companion-agent' },
 }))
+vi.mock('../agents/voice-companion-agent', () => ({
+  voiceCompanionAgent: { id: 'voice-companion-agent' },
+}))
+vi.mock('../agents/voice-draft-agent', () => ({ voiceDraftAgent: { id: 'voice-draft-agent' } }))
 vi.mock('../scorers', () => ({
   answerRelevancyScorer: {},
   toxicityScorer: {},
@@ -57,6 +61,8 @@ describe('Mastra registration', () => {
         entryTitleAgent: { id: 'entry-title-agent' },
         entryAnalysisAgent: { id: 'entry-analysis-agent' },
         insightsAgent: { id: 'insights-agent' },
+        voiceCompanionAgent: { id: 'voice-companion-agent' },
+        voiceDraftAgent: { id: 'voice-draft-agent' },
       },
       tools: {
         searchEntriesTool: { id: 'search-entries' },
