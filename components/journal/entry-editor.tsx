@@ -9,7 +9,11 @@ import { Button } from '@/components/ui/button'
 import { Chip } from '@/components/ui/chip'
 import { moodLabel } from '@/src/lib/design-tokens/colors'
 import { formatEntryDateTime } from '@/src/lib/format'
-import { TAG_NAME_MAX_LENGTH, TITLE_MAX_LENGTH } from '@/src/server/api/routers/v1/entry/schema'
+import {
+  TAG_NAME_MAX_LENGTH,
+  TAGS_MAX_COUNT,
+  TITLE_MAX_LENGTH,
+} from '@/src/server/api/routers/v1/entry/schema'
 import { AiRail, type AiRailState } from './ai-rail'
 import { useEntryAnalysis } from './use-entry-analysis'
 import { useEntryAutosave, type SavedEntry } from './use-entry-autosave'
@@ -30,18 +34,30 @@ export function EntryEditor({ entry }: EntryEditorProps) {
     writtenAt,
     deleting,
     analyzing,
+    bodySavedAt,
     save,
     flush,
     remove,
   } = useEntryAutosave(entry)
   const { title, body, tags } = draft
-  const analysis = useEntryAnalysis(entryId)
+  const latestAnalysis = useEntryAnalysis(entryId)
+  // An analysis older than the last body change describes text that's gone, so don't show it.
+  const analysis =
+    latestAnalysis &&
+    (bodySavedAt === null || new Date(latestAnalysis.analyzedAt).getTime() >= bodySavedAt)
+      ? latestAnalysis
+      : null
 
   // Accepting a suggestion adds it as a tag (saved by autosave), which also removes it here.
+  // Suggestions the API would reject (too long, or the entry is full) are hidden.
   const suggestedTags =
-    analysis?.suggestedTags.filter(
-      (suggestion) => !tags.some((tag) => tag.toLowerCase() === suggestion.toLowerCase()),
-    ) ?? []
+    tags.length >= TAGS_MAX_COUNT
+      ? []
+      : (analysis?.suggestedTags.filter(
+          (suggestion) =>
+            suggestion.length <= TAG_NAME_MAX_LENGTH &&
+            !tags.some((tag) => tag.toLowerCase() === suggestion.toLowerCase()),
+        ) ?? [])
   const railState: AiRailState =
     entryId === null ? 'listening' : analyzing ? 'analyzing' : analysis ? 'ready' : 'unavailable'
 
@@ -52,7 +68,8 @@ export function EntryEditor({ entry }: EntryEditorProps) {
 
   function addTag(tag: string) {
     const t = tag.trim()
-    if (t && !tags.some((existing) => existing.toLowerCase() === t.toLowerCase())) {
+    if (!t || t.length > TAG_NAME_MAX_LENGTH || tags.length >= TAGS_MAX_COUNT) return
+    if (!tags.some((existing) => existing.toLowerCase() === t.toLowerCase())) {
       update({ tags: [...tags, t] })
     }
   }

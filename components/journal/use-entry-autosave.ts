@@ -57,6 +57,8 @@ export function useEntryAutosave(entry?: SavedEntry, delayMs = AUTOSAVE_DELAY_MS
   const [writtenAt, setWrittenAt] = useState<string | null>(entry?.writtenAt ?? null)
   const [deleting, setDeleting] = useState(false)
   const [analyzing, setAnalyzing] = useState(false)
+  /** Server time of the last save that changed the body; analyses older than this are stale. */
+  const [bodySavedAt, setBodySavedAt] = useState<number | null>(null)
 
   const draftRef = useRef(draft)
   /** Snapshot of the draft the server last confirmed; a different snapshot means unsaved edits. */
@@ -83,11 +85,15 @@ export function useEntryAutosave(entry?: SavedEntry, delayMs = AUTOSAVE_DELAY_MS
     [queryClient, trpc],
   )
 
-  /** Refetches the entry until its analysis changes from `baseline`, or the window runs out. */
+  /**
+   * Refetches the entry until it has an analysis made after `since` (the save's server time),
+   * or the window runs out. Keeps going if the editor unmounts so Journal Home still picks up
+   * the new mood; only a newer save or a delete cancels it.
+   */
   const waitForAnalysis = useCallback(
-    async (id: string, baseline: number | null) => {
+    async (id: string, since: number) => {
       const run = ++pollRunRef.current
-      const isCurrent = () => aliveRef.current && !closedRef.current && pollRunRef.current === run
+      const isCurrent = () => !closedRef.current && pollRunRef.current === run
       const deadline = Date.now() + ANALYSIS_POLL_WINDOW_MS
 
       setAnalyzing(true)
@@ -96,22 +102,23 @@ export function useEntryAutosave(entry?: SavedEntry, delayMs = AUTOSAVE_DELAY_MS
           await sleep(ANALYSIS_POLL_INTERVAL_MS)
           if (!isCurrent()) return
 
-          const fresh = await queryClient.fetchQuery({
-            ...trpc.v1.entry.findOne.queryOptions({ id }),
-            staleTime: 0,
-          })
-          if (!isCurrent()) return
-
-          if (analysisStamp(fresh) !== baseline) {
-            void invalidateEntryList()
-            return
+          try {
+            const fresh = await queryClient.fetchQuery({
+              ...trpc.v1.entry.findOne.queryOptions({ id }),
+              staleTime: 0,
+            })
+            if (!isCurrent()) return
+            if ((analysisStamp(fresh) ?? -Infinity) >= since) {
+              void invalidateEntryList()
+              return
+            }
+          } catch {
+            // A failed check (network blip, 5xx) just waits for the next one.
           }
         }
-      } catch {
-        // Failed or rate-limited analysis is not an error for the writer: the panel just
-        // stays without it.
+        // No new analysis in time (rate-limited or failed): the panel quietly goes without it.
       } finally {
-        if (isCurrent()) setAnalyzing(false)
+        if (isCurrent() && aliveRef.current) setAnalyzing(false)
       }
     },
     [queryClient, trpc, invalidateEntryList],
@@ -133,6 +140,7 @@ export function useEntryAutosave(entry?: SavedEntry, delayMs = AUTOSAVE_DELAY_MS
 
       try {
         let serverTitle: string
+        let savedAt: number
 
         if (id === null) {
           const created = await createEntry({
@@ -148,6 +156,7 @@ export function useEntryAutosave(entry?: SavedEntry, delayMs = AUTOSAVE_DELAY_MS
           // cursor stay put while the user keeps typing.
           window.history.replaceState(null, '', `/journal/${created.id}`)
           serverTitle = created.title
+          savedAt = new Date(created.updatedAt).getTime()
         } else {
           const updated = await updateEntry({
             id,
@@ -157,6 +166,7 @@ export function useEntryAutosave(entry?: SavedEntry, delayMs = AUTOSAVE_DELAY_MS
             tags: sent.tags,
           })
           serverTitle = updated.title
+          savedAt = new Date(updated.updatedAt).getTime()
         }
 
         // When the title was left blank the server filled one in. Show it, and send it from now
@@ -172,13 +182,11 @@ export function useEntryAutosave(entry?: SavedEntry, delayMs = AUTOSAVE_DELAY_MS
         setStatus(stillDirty ? 'idle' : 'saved')
         void invalidateEntryList()
 
-        // The server re-analyzes only when the body changed (or the entry is new).
+        // The server trims the body and re-analyzes only when it changed (or the entry is new).
         const savedId = entryIdRef.current
-        if (savedId !== null && (id === null || sent.body !== savedBodyRef.current)) {
-          const baseline = analysisStamp(
-            queryClient.getQueryData(trpc.v1.entry.findOne.queryKey({ id: savedId })),
-          )
-          void waitForAnalysis(savedId, baseline)
+        if (savedId !== null && (id === null || sent.body.trim() !== savedBodyRef.current.trim())) {
+          setBodySavedAt(savedAt)
+          void waitForAnalysis(savedId, savedAt)
         }
         savedBodyRef.current = sent.body
       } catch (caught) {
@@ -186,7 +194,7 @@ export function useEntryAutosave(entry?: SavedEntry, delayMs = AUTOSAVE_DELAY_MS
         setError(getApiErrorMessage(caught))
       }
     },
-    [createEntry, updateEntry, invalidateEntryList, queryClient, trpc, waitForAnalysis],
+    [createEntry, updateEntry, invalidateEntryList, waitForAnalysis],
   )
 
   /** Saves now (cancelling the debounce). Queued behind any save already in flight. */
@@ -278,6 +286,8 @@ export function useEntryAutosave(entry?: SavedEntry, delayMs = AUTOSAVE_DELAY_MS
     deleting,
     /** True while waiting for a fresh analysis after a save. */
     analyzing,
+    /** Server time (ms) of the last body-changing save, or null if none this session. */
+    bodySavedAt,
     /** Explicit Save: always asks the API, so validation errors (e.g. empty body) are shown. */
     save: () => flush(true),
     /** Blur: save now if anything changed. */
