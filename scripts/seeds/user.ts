@@ -1,12 +1,13 @@
 /**
  * Seeds a demo user with months of journaling data (entries, tags, and entry analyses).
  *
- *   npm run db:seed                # create the seed user (aborts if it already exists)
- *   npm run db:seed -- --reset     # delete the seed user (cascades to their data) and re-create it
+ *   npm run seed:user              # create the seed user (aborts if it already exists)
+ *   npm run seed:user -- --reset   # delete the seed user (cascades to their data) and re-create it
  *   npm run db:unseed              # remove the seed user and all of their Postgres data
  *
  * Optional env overrides: SEED_EMAIL, SEED_PASSWORD, SEED_NAME, SEED_MONTHS, SEED_TIME_ZONE.
  * The output is deterministic for a given SEED_MONTHS (fixed PRNG seed), relative to today.
+ * Built-in frameworks are seeded separately: `npm run seed:frameworks`.
  */
 import 'dotenv/config'
 import { randomUUID } from 'node:crypto'
@@ -15,7 +16,7 @@ import prisma from '@/src/lib/prisma'
 import { auth } from '@/src/server/auth/auth'
 import { getEntryDate } from '@/src/server/api/routers/v1/entry/core/mutations/shared'
 import { hashBody } from '@/src/server/api/routers/v1/entry/services/EntryAnalysisService'
-import { SEED_EMAIL } from './seed-config'
+import { SEED_EMAIL } from '../seed-config'
 
 const EMAIL = SEED_EMAIL
 const PASSWORD = process.env.SEED_PASSWORD ?? 'password1234'

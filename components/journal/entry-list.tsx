@@ -232,6 +232,7 @@ export function EntryList() {
                           tags: entry.tags.map((t) => t.name),
                           // No spine until the entry has been analyzed
                           mood: entry.analysis?.mood,
+                          framework: entry.framework?.title,
                         }}
                         now={now}
                         href={`/journal/${entry.id}`}
