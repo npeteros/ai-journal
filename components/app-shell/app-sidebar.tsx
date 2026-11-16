@@ -15,7 +15,7 @@ import type { ShellUser } from './user-avatar'
 import { UserFooter } from './user-footer'
 
 /** Desktop sidebar (lg+): logo, New entry, nav, then streak and user footer pinned to the bottom. */
-export function AppSidebar({ streakDays, user }: { streakDays: number; user: ShellUser }) {
+export function AppSidebar({ user }: { user: ShellUser }) {
   const pathname = usePathname()
 
   return (
@@ -62,7 +62,7 @@ export function AppSidebar({ streakDays, user }: { streakDays: number; user: She
 
       <div className="flex-1" />
 
-      <StreakPill days={streakDays} />
+      <StreakPill />
 
       <UserFooter user={user} />
     </aside>

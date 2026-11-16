@@ -3,13 +3,23 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => ({
   getSession: vi.fn(),
+  prefetchQuery: vi.fn(),
+  statsQueryOptions: vi.fn((input: unknown) => ({ queryKey: ['v1.entry.stats', input] })),
   headers: vi.fn(),
   redirect: vi.fn((url: string) => {
     throw new Error(`NEXT_REDIRECT:${url}`)
   }),
 }))
 
-vi.mock('@/src/server/auth/auth', () => ({ auth: { api: { getSession: mocks.getSession } } }))
+vi.mock('@/src/server/auth/session', () => ({ getServerSession: mocks.getSession }))
+vi.mock('@/src/server/trpc/server', () => ({
+  getQueryClient: () => ({ prefetchQuery: mocks.prefetchQuery }),
+  trpc: { v1: { entry: { stats: { queryOptions: mocks.statsQueryOptions } } } },
+}))
+vi.mock('@tanstack/react-query', () => ({
+  dehydrate: () => ({}),
+  HydrationBoundary: ({ children }: { children: unknown }) => children,
+}))
 vi.mock('next/headers', () => ({ headers: mocks.headers }))
 vi.mock('next/navigation', () => ({ redirect: mocks.redirect }))
 vi.mock('@/components/app-shell/app-shell', () => ({
@@ -35,16 +45,24 @@ describe('(app) layout', () => {
     })
     const result = await AppLayout({ children: 'page' })
     expect(mocks.redirect).not.toHaveBeenCalled()
-    expect(result.props.children).toBe('page')
-    expect(result.props.user).toEqual({ name: 'Maya Chen', email: 'maya@example.com' })
+    const shell = result.props.children
+    expect(shell.props.children).toBe('page')
+    expect(shell.props.user).toEqual({ name: 'Maya Chen', email: 'maya@example.com' })
   })
 
-  it('passes the request headers to getSession', async () => {
-    const reqHeaders = new Headers({ cookie: 'better-auth.session_token=abc' })
-    mocks.headers.mockResolvedValue(reqHeaders)
-    mocks.getSession.mockResolvedValue({ user: { id: 'user-1' } })
+  it('prefetches the streak in the app time zone', async () => {
+    mocks.getSession.mockResolvedValue({ user: { id: 'user-1', name: 'Maya', email: 'm@x.co' } })
     await AppLayout({ children: 'page' })
-    expect(mocks.getSession).toHaveBeenCalledWith({ headers: reqHeaders })
+    expect(mocks.statsQueryOptions).toHaveBeenCalledWith({ timeZone: 'Asia/Manila' })
+    expect(mocks.prefetchQuery).toHaveBeenCalledWith({
+      queryKey: ['v1.entry.stats', { timeZone: 'Asia/Manila' }],
+    })
+  })
+
+  it('does not prefetch when the session is stale', async () => {
+    mocks.getSession.mockResolvedValue(null)
+    await expect(AppLayout({ children: 'page' })).rejects.toThrow('NEXT_REDIRECT')
+    expect(mocks.prefetchQuery).not.toHaveBeenCalled()
   })
 
   it('redirects a stale session to /login with the stale flag and original path', async () => {

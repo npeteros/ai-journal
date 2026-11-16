@@ -10,11 +10,13 @@ import {
 } from '@/components/settings/settings-ui'
 import { ThemeToggle } from '@/components/settings/theme-toggle'
 import { languages, reminderSettings } from '@/src/lib/placeholder/settings'
-import { placeholderUser } from '@/src/lib/placeholder/user'
+import { getServerSession } from '@/src/server/auth/session'
 
 export const metadata: Metadata = { title: 'Settings' }
 
-export default function GeneralSettingsPage() {
+export default async function GeneralSettingsPage() {
+  const session = await getServerSession()
+
   return (
     <>
       <SettingsTitle>General</SettingsTitle>
@@ -49,7 +51,7 @@ export default function GeneralSettingsPage() {
             </RowIcon>
           }
           label="Email"
-          value={placeholderUser.email}
+          value={session?.user.email}
         />
         <SettingsRow inset label="Change password" href="/settings/security" />
       </SettingsSection>
