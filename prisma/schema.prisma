@@ -25,6 +25,7 @@ model User {
   aiUsageLogs   AiUsageLog[]
   entries       Entry[]
   tags          Tag[]
+  frameworks    Framework[]
   insightReport InsightReport?
 
   @@unique([email])
@@ -96,18 +97,20 @@ model AiUsageLog {
 }
 
 model Entry {
-  id        String         @id @default(uuid()) @db.Uuid
-  userId    String
-  user      User           @relation(fields: [userId], references: [id], onDelete: Cascade)
-  title     String
-  body      String
-  writtenAt DateTime       @default(now()) @db.Timestamptz
-  entryDate DateTime       @db.Date
-  createdAt DateTime       @default(now()) @db.Timestamptz
-  updatedAt DateTime       @updatedAt @db.Timestamptz
-  deletedAt DateTime?      @db.Timestamptz
-  tags      EntryTag[]
-  analysis  EntryAnalysis?
+  id          String         @id @default(uuid()) @db.Uuid
+  userId      String
+  user        User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  frameworkId String?        @db.Uuid
+  framework   Framework?     @relation(fields: [frameworkId], references: [id], onDelete: SetNull)
+  title       String
+  body        String
+  writtenAt   DateTime       @default(now()) @db.Timestamptz
+  entryDate   DateTime       @db.Date
+  createdAt   DateTime       @default(now()) @db.Timestamptz
+  updatedAt   DateTime       @updatedAt @db.Timestamptz
+  deletedAt   DateTime?      @db.Timestamptz
+  tags        EntryTag[]
+  analysis    EntryAnalysis?
 
   @@index([userId, writtenAt])
   @@index([userId, entryDate])
@@ -186,4 +189,22 @@ model EntryTag {
   @@id([entryId, tagId])
   @@index([tagId])
   @@map("entry_tag")
+}
+model Framework {
+  id          String    @id @default(uuid()) @db.Uuid
+  slug        String    @unique
+  title       String
+  description String
+  minutes     Int
+  icon        String
+  prompts     Json
+  userId      String?
+  user        User?     @relation(fields: [userId], references: [id])
+  entries     Entry[]
+  createdAt   DateTime  @default(now()) @db.Timestamptz
+  updatedAt   DateTime  @updatedAt @db.Timestamptz
+  deletedAt   DateTime? @db.Timestamptz
+
+  @@index([userId])
+  @@map("framework")
 }
