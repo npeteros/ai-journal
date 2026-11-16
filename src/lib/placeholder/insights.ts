@@ -16,17 +16,6 @@ export const moodThisWeek = [
   { label: 'Sun', value: 46 },
 ]
 
-export const emotionalTrend = [
-  { label: 'Mar', value: 28 },
-  { label: 'Apr', value: 46 },
-  { label: 'May', value: 36 },
-  { label: 'Jun', value: 70 },
-  { label: 'Jul', value: 55 },
-  { label: 'Aug', value: 81 },
-]
-export const emotionalTrendCaption =
-  'Your overall mood has trended steadily upward since May, with a dip around the mid-June deadline crunch.'
-
 export const moodMix: { mood: Mood; count: number }[] = [
   { mood: 'calm', count: 8 },
   { mood: 'grateful', count: 6 },

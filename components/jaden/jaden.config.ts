@@ -40,6 +40,13 @@ export const MOODS = {
 } as const
 export type JadenMood = keyof typeof MOODS
 
+/** Jaden's expression for an entry's mood score (0–100, higher = better). */
+export function moodForScore(score: number): JadenMood {
+  if (score >= 70) return 'happy'
+  if (score >= 40) return 'neutral'
+  return 'concerned'
+}
+
 export const GESTURES = {
   wave: {
     label: 'Wave',

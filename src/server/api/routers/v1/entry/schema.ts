@@ -20,7 +20,8 @@ const bodySchema = z.string().trim().min(1).max(BODY_MAX_LENGTH)
 
 const writtenAtSchema = z.iso.datetime({ offset: true })
 
-const timeZoneSchema = z.string().refine(
+/** An IANA time zone name, e.g. `Asia/Manila`. Shared by every router that takes a `timeZone`. */
+export const timeZoneSchema = z.string().refine(
   (value) => {
     try {
       new Intl.DateTimeFormat('en-US', { timeZone: value })

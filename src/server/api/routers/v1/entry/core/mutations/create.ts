@@ -2,6 +2,7 @@ import prisma from '@/src/lib/prisma'
 import { protectedProcedure } from '@/src/server/trpc/init'
 import { EntryCreateSchema } from '../../schema'
 import { entryTitleService } from '../../services/EntryTitleService'
+import { scheduleEntryAnalysis } from '../../services/scheduleEntryAnalysis'
 import { findOrCreateTags, getEntryDate } from './shared'
 
 export const createEntry = protectedProcedure
@@ -13,7 +14,7 @@ export const createEntry = protectedProcedure
         ? await entryTitleService.generate({ userId: ctx.user.id, body: input.body })
         : input.title
 
-    return prisma.$transaction(async (tx) => {
+    const entry = await prisma.$transaction(async (tx) => {
       const entry = await tx.entry.create({
         data: {
           userId: ctx.user.id,
@@ -33,4 +34,8 @@ export const createEntry = protectedProcedure
 
       return entry
     })
+
+    scheduleEntryAnalysis({ entryId: entry.id, userId: ctx.user.id, body: input.body })
+
+    return entry
   })

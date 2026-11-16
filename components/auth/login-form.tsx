@@ -10,10 +10,8 @@ import { loginSchema, type LoginValues } from '@/src/server/auth/schemas/login'
 import { Button } from '@/components/ui/button'
 import { Field, PasswordInput, authInputClass } from './fields'
 
-// Where to send the user after a successful sign in.
-const AFTER_LOGIN_URL = '/journal'
-
-export function LoginForm() {
+// `redirectTo` must already be sanitized (see `getSafeRedirect`); the login page does this.
+export function LoginForm({ redirectTo }: { redirectTo: string }) {
   const router = useRouter()
 
   const {
@@ -27,7 +25,7 @@ export function LoginForm() {
   })
 
   async function onSubmit({ email, password }: LoginValues) {
-    const { error } = await signIn.email({ email, password, callbackURL: AFTER_LOGIN_URL })
+    const { error } = await signIn.email({ email, password, callbackURL: redirectTo })
 
     if (error) {
       return setError('root', {
@@ -38,7 +36,7 @@ export function LoginForm() {
       })
     }
 
-    router.push(AFTER_LOGIN_URL)
+    router.push(redirectTo)
     router.refresh()
   }
 

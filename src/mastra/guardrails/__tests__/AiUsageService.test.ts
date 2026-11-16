@@ -12,7 +12,7 @@ const NOW = new Date('2026-10-30T12:00:00.000Z')
 
 const reservation: AiUsageReservation = {
   userId: 'user-1',
-  agent: 'weather-agent',
+  agent: 'journal-companion-agent',
   model: 'openai/gpt-5-mini',
 }
 

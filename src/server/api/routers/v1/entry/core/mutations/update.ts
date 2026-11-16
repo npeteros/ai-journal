@@ -4,6 +4,7 @@ import prisma from '@/src/lib/prisma'
 import { protectedProcedure } from '@/src/server/trpc/init'
 import { EntryUpdateSchema } from '../../schema'
 import { entryTitleService } from '../../services/EntryTitleService'
+import { scheduleEntryAnalysis } from '../../services/scheduleEntryAnalysis'
 import { findOrCreateTags, getEntryDate } from './shared'
 
 const EntryUpdateWithIdSchema = z.object({ id: z.uuid() }).and(EntryUpdateSchema)
@@ -26,7 +27,7 @@ export const updateEntry = protectedProcedure
         ? await entryTitleService.generate({ userId: ctx.user.id, body })
         : input.title
 
-    return prisma.$transaction(async (tx) => {
+    const entry = await prisma.$transaction(async (tx) => {
       if (input.tags !== undefined) {
         const tags = await findOrCreateTags(tx, ctx.user.id, input.tags)
 
@@ -58,4 +59,11 @@ export const updateEntry = protectedProcedure
 
       return tx.entry.findUniqueOrThrow({ where: { id: input.id } })
     })
+
+    // Title-, tag- and date-only edits keep the existing analysis.
+    if (input.body !== undefined && input.body !== existingEntry.body) {
+      scheduleEntryAnalysis({ entryId: entry.id, userId: ctx.user.id, body: input.body })
+    }
+
+    return entry
   })

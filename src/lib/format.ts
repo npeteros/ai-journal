@@ -46,3 +46,8 @@ export function greetingFor(now: Date = PLACEHOLDER_NOW) {
   const h = now.getHours()
   return h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening'
 }
+
+/** First word of a display name, or null when no name is set. */
+export function firstNameOf(name: string): string | null {
+  return name.trim().split(/\s+/)[0] || null
+}

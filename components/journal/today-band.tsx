@@ -2,17 +2,16 @@ import Link from 'next/link'
 import { ArrowRight } from 'lucide-react'
 
 import { Orb } from '@/components/ui/ai'
-import { cssVar, moodColor, type Mood } from '@/src/lib/design-tokens/colors'
+import { WeekMoodStrip } from './week-mood-strip'
 
 type TodayBandProps = {
   prompt: string
   source: string
-  week: { day: string; mood: Mood }[]
   writeHref: string
 }
 
 /** Dark hero band: today's AI prompt on the left, the week in mood dots on the right. */
-export function TodayBand({ prompt, source, week, writeHref }: TodayBandProps) {
+export function TodayBand({ prompt, source, writeHref }: TodayBandProps) {
   return (
     <section
       aria-label="Today's prompt"
@@ -63,39 +62,7 @@ export function TodayBand({ prompt, source, week, writeHref }: TodayBandProps) {
         <span className="text-[11px] leading-none font-bold tracking-[0.08em] text-[oklch(80%_0.02_260)] uppercase">
           Your week
         </span>
-        <ol
-          className="flex justify-between gap-4 sm:justify-start"
-          aria-label="Mood each day this week"
-        >
-          {week.map((d, i) => {
-            const today = i === week.length - 1
-            return (
-              <li key={i} className="flex flex-col items-center gap-2">
-                <span
-                  className="relative size-3 rounded-full"
-                  style={{ background: cssVar(moodColor[d.mood]) }}
-                  title={d.mood}
-                >
-                  {today && (
-                    <span
-                      className="lv-ripple absolute -inset-1.5 rounded-full border-[1.5px]"
-                      style={{ borderColor: cssVar(moodColor[d.mood]) }}
-                    />
-                  )}
-                </span>
-                <span
-                  className={
-                    today
-                      ? 'text-[10px] leading-none font-extrabold text-[oklch(90%_0.08_60)]'
-                      : 'text-[10px] leading-none font-semibold text-[oklch(75%_0.02_260)]'
-                  }
-                >
-                  {d.day}
-                </span>
-              </li>
-            )
-          })}
-        </ol>
+        <WeekMoodStrip />
       </div>
     </section>
   )

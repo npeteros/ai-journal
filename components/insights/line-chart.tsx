@@ -12,7 +12,8 @@ import {
 } from '@/components/ui/chart'
 import { cssVar, type ColorToken } from '@/src/lib/design-tokens/colors'
 
-type Point = { label: string; value: number }
+/** `value: null` leaves a gap (a day or month with no analyzed entries). */
+type Point = { label: string; value: number | null }
 
 type LineChartProps = {
   data: Point[]
@@ -27,7 +28,7 @@ type LineChartProps = {
 }
 
 /**
- * Line + soft gradient area (shadcn chart / Recharts). Values are 0–100 mood scores.
+ * Line + soft gradient area (shadcn chart / Recharts). Values are 0–100 mood scores; null values leave a gap.
  * Colour follows the theme via the design tokens; animation is skipped under reduced motion.
  */
 export function LineChart({
@@ -92,6 +93,7 @@ export function LineChart({
           <Area
             dataKey="value"
             type="linear"
+            connectNulls={false}
             stroke="var(--color-value)"
             strokeWidth={3}
             strokeLinecap="round"

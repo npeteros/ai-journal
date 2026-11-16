@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { TRPCError } from '@trpc/server'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createCallerFactory, type TRPCContext } from '@/src/server/trpc/init'
 import { entryRouter } from '../index'
 import { PAGE_SIZE_DEFAULT } from '../schema'
@@ -15,6 +15,7 @@ const mocks = vi.hoisted(() => ({
       findMany: vi.fn(),
       findFirst: vi.fn(),
       count: vi.fn(),
+      groupBy: vi.fn(),
     },
   },
 }))
@@ -44,6 +45,7 @@ const dbEntry = {
   updatedAt: new Date('2026-08-25T00:14:00Z'),
   deletedAt: null,
   tags: [{ tag: { id: TAG_ID, name: 'Gratitude' } }],
+  analysis: null,
 }
 
 const { tags: _tags, ...dbEntryFields } = dbEntry
@@ -149,5 +151,38 @@ describe('entry queries', () => {
         expect.objectContaining({ where: expect.objectContaining({ userId: 'user-2' }) }),
       )
     })
+  })
+})
+
+describe('entry.stats', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-03-10T12:00:00Z'))
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  it("returns the caller's streak, counting only live entries", async () => {
+    mocks.prisma.entry.groupBy.mockResolvedValue(
+      ['2026-03-09', '2026-03-10'].map((day) => ({
+        entryDate: new Date(`${day}T00:00:00.000Z`),
+        _count: { _all: 1 },
+      })),
+    )
+
+    const stats = await callerFor('user-2').stats({ timeZone: 'Asia/Manila' })
+
+    expect(stats.currentStreak).toBe(2)
+    expect(stats.totalEntries).toBe(2)
+    expect(mocks.prisma.entry.groupBy).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { userId: 'user-2', deletedAt: null } }),
+    )
+  })
+
+  it('rejects an invalid time zone', async () => {
+    await expect(callerFor().stats({ timeZone: 'Not/AZone' })).rejects.toBeInstanceOf(TRPCError)
   })
 })
