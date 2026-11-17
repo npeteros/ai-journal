@@ -26,9 +26,10 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
     redirect(`/login?${params}`)
   }
 
-  // Prefetch the streak so the pill renders with the real number instead of flashing.
+  // Start the streak query without waiting for it: the pending query is dehydrated and streams to
+  // the pill, so the shell renders right away (see `shouldDehydrateQuery` in query-client.ts).
   const queryClient = getQueryClient()
-  await queryClient.prefetchQuery(trpc.v1.entry.stats.queryOptions({ timeZone: APP_TIME_ZONE }))
+  void queryClient.prefetchQuery(trpc.v1.entry.stats.queryOptions({ timeZone: APP_TIME_ZONE }))
 
   const user = { name: session.user.name, email: session.user.email }
 

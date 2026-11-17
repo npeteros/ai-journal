@@ -11,8 +11,13 @@ import { getApiErrorMessage } from './api-error'
 export const AUTOSAVE_DELAY_MS = 1500
 /**
  * Analysis runs server-side after a 30 s debounce plus the model call, so after a save that
- * changes the body we check for the result every 5 s, for up to 90 s, then give up quietly.
+ * changes the body we first check once the debounce has passed, then every 5 s, for up to 90 s,
+ * then give up quietly.
+ *
+ * Mirrors `ENTRY_ANALYSIS_DEBOUNCE_MS` in src/mastra/workflows/entry-analysis-workflow.ts, which
+ * isn't imported here so Mastra stays out of the client bundle.
  */
+export const ANALYSIS_FIRST_CHECK_DELAY_MS = 30_000
 export const ANALYSIS_POLL_INTERVAL_MS = 5000
 export const ANALYSIS_POLL_WINDOW_MS = 90_000
 
@@ -106,10 +111,18 @@ export function useEntryAutosave(entry?: SavedEntry, delayMs = AUTOSAVE_DELAY_MS
       const isCurrent = () => !closedRef.current && pollRunRef.current === run
       const deadline = Date.now() + ANALYSIS_POLL_WINDOW_MS
 
+      // Nothing can arrive before the server's debounce has passed since the save, so the first
+      // check waits for it. Clamped so clock skew between server and browser can't stretch it.
+      let wait = Math.min(
+        ANALYSIS_FIRST_CHECK_DELAY_MS,
+        Math.max(ANALYSIS_POLL_INTERVAL_MS, since + ANALYSIS_FIRST_CHECK_DELAY_MS - Date.now()),
+      )
+
       setAnalyzing(true)
       try {
         while (Date.now() < deadline) {
-          await sleep(ANALYSIS_POLL_INTERVAL_MS)
+          await sleep(wait)
+          wait = ANALYSIS_POLL_INTERVAL_MS
           if (!isCurrent()) return
 
           try {

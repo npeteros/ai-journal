@@ -63,25 +63,28 @@ function reportResponse(
 
 /** Returns the saved report immediately and starts stale report regeneration after the response. */
 export const report = protectedProcedure.query(async ({ ctx }): Promise<InsightReportResponse> => {
-  const stored = await prisma.insightReport.findUnique({
-    where: { userId: ctx.user.id },
-    select: {
-      recurringThemes: true,
-      growthSuggestions: true,
-      trendCaption: true,
-      periodStart: true,
-      periodEnd: true,
-      entryCount: true,
-      createdAt: true,
-      generatedAt: true,
-      generatingAt: true,
-      lastRefreshAt: true,
-    },
-  })
+  // `tryStart` checks staleness itself (and claims stale work), so it runs alongside the read of
+  // the stored report. Whichever finishes first, a claim always reports `updating`.
+  const [stored, start] = await Promise.all([
+    prisma.insightReport.findUnique({
+      where: { userId: ctx.user.id },
+      select: {
+        recurringThemes: true,
+        growthSuggestions: true,
+        trendCaption: true,
+        periodStart: true,
+        periodEnd: true,
+        entryCount: true,
+        createdAt: true,
+        generatedAt: true,
+        generatingAt: true,
+        lastRefreshAt: true,
+      },
+    }),
+    insightReportService.tryStart(ctx.user.id),
+  ])
 
-  const stale = await insightReportService.isStale(ctx.user.id)
-  const start = stale ? await insightReportService.tryStart(ctx.user.id) : null
-  if (start?.status === 'claimed') {
+  if (start.status === 'claimed') {
     scheduleInsightReportGeneration(ctx.user.id, start.claimedAt)
   }
 
@@ -106,20 +109,18 @@ export const report = protectedProcedure.query(async ({ ctx }): Promise<InsightR
     }
   }
 
-  if (start?.status === 'not_enough_entries' || (!stored?.generatedAt && !stale)) {
+  if (start.status === 'not_enough_entries') {
     return reportResponse(
       'notEnoughEntries',
       savedReport,
-      start?.status === 'not_enough_entries'
-        ? start.missingEntries
-        : await insightReportService.remainingEntries(ctx.user.id),
+      start.missingEntries,
       stored?.lastRefreshAt ?? null,
     )
   }
 
   if (
-    start?.status === 'claimed' ||
-    start?.status === 'refresh_in_progress' ||
+    start.status === 'claimed' ||
+    start.status === 'refresh_in_progress' ||
     stored?.generatingAt
   ) {
     return reportResponse('updating', savedReport, 0, stored?.lastRefreshAt ?? null)

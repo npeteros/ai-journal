@@ -101,13 +101,19 @@ describe('Mastra registration', () => {
     vi.doMock('@mastra/libsql', () => {
       throw new Error('Unable to open connection to local database ./mastra.db')
     })
+    // Scorers (and @mastra/evals) are for evals and Studio only and must not load in production.
+    vi.doMock('../scorers', () => {
+      throw new Error('scorers loaded in production')
+    })
     try {
       await expect(import('../index')).resolves.toHaveProperty('mastra')
       expect(mocks.config).not.toHaveProperty('storage')
       expect(mocks.config).not.toHaveProperty('observability')
+      expect(mocks.config).not.toHaveProperty('scorers')
     } finally {
       vi.doUnmock('@mastra/duckdb')
       vi.doUnmock('@mastra/libsql')
+      vi.doUnmock('../scorers')
       vi.unstubAllEnvs()
     }
   })

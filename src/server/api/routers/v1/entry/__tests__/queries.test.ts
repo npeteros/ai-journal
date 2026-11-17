@@ -10,7 +10,6 @@ const TAG_ID = '223e4567-e89b-12d3-a456-426614174000'
 
 const mocks = vi.hoisted(() => ({
   prisma: {
-    $transaction: vi.fn(),
     entry: {
       findMany: vi.fn(),
       findFirst: vi.fn(),
@@ -58,9 +57,6 @@ function findManyArgs() {
 describe('entry queries', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    mocks.prisma.$transaction.mockImplementation(async (queries: Promise<unknown>[]) =>
-      Promise.all(queries),
-    )
     mocks.prisma.entry.findMany.mockResolvedValue([dbEntry])
     mocks.prisma.entry.count.mockResolvedValue(1)
   })

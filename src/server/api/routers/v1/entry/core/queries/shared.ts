@@ -65,7 +65,9 @@ function entryWhereForUser(userId: string, input: EntryFindManyData) {
 /** Reads only active entries owned by the trusted server-side user ID. */
 export async function findManyEntriesForUser(userId: string, input: EntryFindManyData) {
   const where = entryWhereForUser(userId, input)
-  const [entries, total] = await prisma.$transaction([
+  // Run side by side rather than in a transaction: BEGIN/COMMIT would add two round trips, and a
+  // total that is briefly off by one during a concurrent write is harmless for paging.
+  const [entries, total] = await Promise.all([
     prisma.entry.findMany({
       where,
       include: entryInclude,

@@ -20,10 +20,11 @@ export default async function JournalHomePage() {
   const session = await getServerSession()
   const firstName = session ? firstNameOf(session.user.name) : null
 
-  // Prefetch the first page of entries and the tag chips so the list renders without a loading
-  // flash. Prefetch swallows errors, so a failure here surfaces as the list's error state instead.
+  // Start the first page of entries and the tag chips without waiting for them: the pending queries
+  // are dehydrated and stream to the list, so the greeting and today band render right away.
+  // Prefetch swallows errors, so a failure here surfaces as the list's error state instead.
   const queryClient = getQueryClient()
-  await Promise.all([
+  void Promise.all([
     queryClient.prefetchInfiniteQuery({
       // Must match the key in components/journal/entry-list.tsx
       queryKey: [
