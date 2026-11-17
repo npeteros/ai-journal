@@ -11,6 +11,7 @@ import {
   INSIGHT_REPORT_LOCK_TIMEOUT_MS,
   INSIGHT_REPORT_MANUAL_REFRESH_COOLDOWN_MS,
   INSIGHT_REPORT_MAX_AGE_MS,
+  INSIGHT_REPORT_MIN_ANALYZED_ENTRIES,
   INSIGHT_REPORT_MIN_NEW_ENTRIES,
   insightReportLimits,
   insightReportWindows,
@@ -169,6 +170,22 @@ describe('InsightReportService', () => {
       status: 'not_stale',
     })
     expect(fakeRepository.claimGeneration).not.toHaveBeenCalled()
+    expect(fakeRepository.findReport).toHaveBeenCalledOnce()
+    expect(fakeRepository.countAnalyzedEntries).not.toHaveBeenCalled()
+  })
+
+  it('reports missing entries before the first report from a single read and count', async () => {
+    const fakeRepository = repository({
+      findReport: vi.fn().mockResolvedValue(null),
+      countAnalyzedEntries: vi.fn().mockResolvedValue(INSIGHT_REPORT_MIN_ANALYZED_ENTRIES - 2),
+    })
+
+    await expect(service(vi.fn(), fakeRepository).tryStart('user-1')).resolves.toEqual({
+      status: 'not_enough_entries',
+      missingEntries: 2,
+    })
+    expect(fakeRepository.findReport).toHaveBeenCalledOnce()
+    expect(fakeRepository.countAnalyzedEntries).toHaveBeenCalledOnce()
   })
 
   it('enforces the once-per-day manual refresh limit through the atomic claim', async () => {
