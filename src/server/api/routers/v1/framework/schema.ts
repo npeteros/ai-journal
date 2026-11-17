@@ -26,13 +26,24 @@ export const FrameworkCompleteSchema = z.object({
   timeZone: timeZoneSchema,
 })
 
+/** The single list of icon names; `framework-icon.tsx` must draw exactly these. */
 export const FRAMEWORK_ICONS = ['layers', 'globe', 'check', 'compass', 'heart'] as const
+export type FrameworkIconName = (typeof FRAMEWORK_ICONS)[number]
 
 export const FrameworkCreateSchema = z.object({
   title: z.string().trim().min(1).max(60),
   description: z.string().trim().max(140).default(''),
   icon: z.enum(FRAMEWORK_ICONS),
-  prompts: z.array(z.string().trim().min(1).max(200)).min(1).max(10),
+  prompts: z
+    .array(
+      z.object({
+        prompt: z.string().trim().min(1).max(200),
+        // Placeholder hint carried over when a built-in template is used as a starting point.
+        sample: z.string().trim().max(500).optional(),
+      }),
+    )
+    .min(1)
+    .max(10),
   minutes: z.int().min(1).max(120).optional(),
 })
 

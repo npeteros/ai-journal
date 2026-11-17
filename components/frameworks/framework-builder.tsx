@@ -7,7 +7,6 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Reorder, useDragControls } from 'motion/react'
 import { GripVertical, Plus, X } from 'lucide-react'
 
-import { getApiErrorMessage } from '@/components/journal/api-error'
 import { Button } from '@/components/ui/button'
 import { SectionLabel } from '@/components/ui/card'
 import {
@@ -15,18 +14,21 @@ import {
   FrameworkCreateSchema,
 } from '@/src/server/api/routers/v1/framework/schema'
 import { useTRPC } from '@/src/server/trpc/client'
+import {
+  FRAMEWORK_FIELD_MESSAGES,
+  frameworkIssueField,
+  getFrameworkErrorMessage,
+} from './framework-error'
 import { FrameworkIcon, type FrameworkIconName } from './framework-icon'
 
-type Prompt = { id: string; text: string }
+/** `sample` is the template's placeholder hint; it is dropped once the prompt text is edited. */
+type Prompt = { id: string; text: string; sample?: string }
 
-type Initial = { title: string; description: string; icon: FrameworkIconName; prompts: string[] }
-
-const MESSAGES: Record<string, string> = {
-  title: 'Name must be 1–60 characters.',
-  description: 'Description can be up to 140 characters.',
-  icon: 'Pick an icon.',
-  prompts: 'Add 1–10 prompts.',
-  prompt: 'Prompts must be 1–200 characters.',
+type Initial = {
+  title: string
+  description: string
+  icon: FrameworkIconName
+  prompts: { prompt: string; sample?: string }[]
 }
 
 const ErrorText = ({ text }: { text?: string }) =>
@@ -97,7 +99,7 @@ export function FrameworkBuilder({
   const [description, setDescription] = useState(initial.description)
   const [icon, setIcon] = useState(initial.icon)
   const [prompts, setPrompts] = useState<Prompt[]>(() =>
-    initial.prompts.map((text, i) => ({ id: `p${i}`, text })),
+    initial.prompts.map(({ prompt, sample }, i) => ({ id: `p${i}`, text: prompt, sample })),
   )
   const [draft, setDraft] = useState('')
   const [errors, setErrors] = useState<Record<string, string>>({})
@@ -131,13 +133,15 @@ export function FrameworkBuilder({
       title,
       description,
       icon,
-      prompts: prompts.map((p) => p.text),
+      prompts: prompts.map((p) => ({ prompt: p.text, sample: p.sample })),
     })
     if (!parsed.success) {
       const next: Record<string, string> = {}
       for (const { path } of parsed.error.issues) {
-        const key = path.length > 1 ? `prompt.${String(path[1])}` : String(path[0])
-        next[key] ??= MESSAGES[path.length > 1 ? 'prompt' : key]
+        const field = frameworkIssueField(path)
+        // Prompt errors are keyed by the prompt's id, so they follow it when rows are reordered.
+        const key = field === 'prompt' ? `prompt.${prompts[Number(path[1])]?.id}` : field
+        next[key] ??= FRAMEWORK_FIELD_MESSAGES[field]
       }
       return setErrors(next)
     }
@@ -169,7 +173,7 @@ export function FrameworkBuilder({
         </Button>
       </div>
 
-      {saveError && <ErrorText text={getApiErrorMessage(saveError)} />}
+      {saveError && <ErrorText text={getFrameworkErrorMessage(saveError)} />}
 
       <label className="sr-only" htmlFor="framework-title">
         Framework name
@@ -226,13 +230,15 @@ export function FrameworkBuilder({
         onReorder={setPrompts}
         className="flex flex-col gap-2.5"
       >
-        {prompts.map((p, i) => (
+        {prompts.map((p) => (
           <PromptRow
             key={p.id}
             prompt={p}
-            error={errors[`prompt.${i}`]}
+            error={errors[`prompt.${p.id}`]}
             onChange={(text) =>
-              setPrompts((prev) => prev.map((x) => (x.id === p.id ? { ...x, text } : x)))
+              setPrompts((prev) =>
+                prev.map((x) => (x.id === p.id ? { ...x, text, sample: undefined } : x)),
+              )
             }
             onRemove={() => setPrompts((prev) => prev.filter((x) => x.id !== p.id))}
           />
