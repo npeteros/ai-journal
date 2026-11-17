@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next'
 import { TRPCReactProvider } from '@/src/server/trpc/client'
 import { ThemeProvider } from '@/components/theme/theme-provider'
+import { ServiceWorkerRegistrar } from '@/components/pwa/service-worker-registrar'
 import { fontVariables } from '@/src/lib/design-tokens/typography'
 import { site } from '@/src/lib/site'
 import './globals.css'
@@ -55,6 +56,7 @@ export default function RootLayout({ children }: LayoutProps<'/'>) {
         <ThemeProvider>
           <TRPCReactProvider>{children}</TRPCReactProvider>
         </ThemeProvider>
+        <ServiceWorkerRegistrar />
       </body>
     </html>
   )
