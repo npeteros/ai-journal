@@ -9,9 +9,10 @@ import { getQueryClient, trpc } from '@/src/server/trpc/server'
 
 export const metadata: Metadata = { title: 'Insights' }
 
-export default async function InsightsOverviewPage() {
+export default function InsightsOverviewPage() {
+  // Not awaited: the pending query streams to the client, which shows its own loading state.
   const queryClient = getQueryClient()
-  await queryClient.prefetchQuery(trpc.v1.insights.report.queryOptions())
+  void queryClient.prefetchQuery(trpc.v1.insights.report.queryOptions())
 
   return (
     <Page>
