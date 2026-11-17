@@ -17,7 +17,8 @@
     "seed:user": "tsx scripts/seeds/user.ts",
     "seed:frameworks": "tsx scripts/seeds/frameworks.ts",
     "db:unseed": "tsx scripts/unseed.ts",
-    "postinstall": "prisma generate && next typegen"
+    "postinstall": "prisma generate && next typegen",
+    "brand:icons": "tsx scripts/brand/generate-icons.ts"
   },
   "dependencies": {
     "@ai-sdk/openai": "^4.0.103",

@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex" />
+    <meta name="theme-color" content="#fbf6ec" />
+    <title>Offline · JADEN</title>
+    <link rel="icon" href="/icons/icon-192.png" />
+    <style>
+      :root {
+        color-scheme: light dark;
+        --bg: #fbf6ec;
+        --ink: #1e1a14;
+        --muted: #67625c;
+        --card: #fffdf9;
+        --btn-bg: #1e1a14;
+        --btn-fg: #fffdf9;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #130f0a;
+          --ink: #f5efe4;
+          --muted: #a9a29a;
+          --card: #1d1913;
+          --btn-bg: #f5efe4;
+          --btn-fg: #130f0a;
+        }
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        min-height: 100dvh;
+        display: grid;
+        place-items: center;
+        padding: 24px 16px;
+        background: var(--bg);
+        color: var(--ink);
+        font-family: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+      }
+      main { width: 100%; max-width: 380px; text-align: center; }
+      .ledge {
+        position: relative;
+        margin: 0 auto 28px;
+        width: 220px;
+        padding-top: 150px;
+      }
+      .ledge img { position: absolute; top: 0; left: 30px; width: 160px; }
+      .ledge::after {
+        content: '';
+        display: block;
+        height: 18px;
+        border-radius: 14px 14px 0 0;
+        background: var(--card);
+        box-shadow: 0 -4px 16px rgb(60 40 20 / 0.1);
+      }
+      h1 {
+        margin: 0 0 10px;
+        font-family: ui-serif, Georgia, 'Times New Roman', serif;
+        font-weight: 500;
+        font-size: 30px;
+      }
+      p { margin: 0 0 24px; line-height: 1.6; color: var(--muted); }
+      button {
+        border: 0;
+        border-radius: 999px;
+        padding: 12px 24px;
+        font: inherit;
+        font-weight: 600;
+        background: var(--btn-bg);
+        color: var(--btn-fg);
+        cursor: pointer;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <div class="ledge"><img src="/brand/jaden.svg" alt="" /></div>
+      <h1>You're offline</h1>
+      <p>Jaden will be right here when you're back online. Your entries are safe.</p>
+      <button type="button" onclick="location.reload()">Try again</button>
+    </main>
+  </body>
+</html>

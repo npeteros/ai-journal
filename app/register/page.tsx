@@ -3,7 +3,11 @@ import type { Metadata } from 'next'
 import { AuthSplitLayout } from '@/components/auth/auth-split-layout'
 import { RegisterForm } from '@/components/auth/register-form'
 
-export const metadata: Metadata = { title: 'Create account' }
+export const metadata: Metadata = {
+  title: 'Create account',
+  description: 'Start a private, AI-assisted journal with JADEN. Free to get started.',
+  alternates: { canonical: '/register' },
+}
 
 export default function RegisterPage() {
   return (

@@ -1,3 +1,4 @@
+import type { Metadata } from 'next'
 import type { ReactNode } from 'react'
 import { dehydrate, HydrationBoundary } from '@tanstack/react-query'
 import { headers } from 'next/headers'
@@ -8,6 +9,9 @@ import { APP_TIME_ZONE } from '@/src/lib/app-time-zone'
 import { PATHNAME_HEADER, STALE_SESSION_PARAM } from '@/src/lib/auth/redirect'
 import { getServerSession } from '@/src/server/auth/session'
 import { getQueryClient, trpc } from '@/src/server/trpc/server'
+
+// Signed-in pages are private: keep them out of search results.
+export const metadata: Metadata = { robots: { index: false, follow: false } }
 
 // Authoritative session check. `proxy.ts` only checks that the cookie exists, so an expired
 // or revoked session gets this far. The stale flag stops the proxy bouncing /login back here,
