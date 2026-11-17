@@ -4,7 +4,11 @@ import { AuthSplitLayout } from '@/components/auth/auth-split-layout'
 import { LoginForm } from '@/components/auth/login-form'
 import { getSafeRedirect } from '@/src/lib/auth/redirect'
 
-export const metadata: Metadata = { title: 'Sign in' }
+export const metadata: Metadata = {
+  title: 'Sign in',
+  description: 'Sign in to your JADEN journal.',
+  alternates: { canonical: '/login' },
+}
 
 export default async function LoginPage(props: PageProps<'/login'>) {
   const { redirect } = await props.searchParams

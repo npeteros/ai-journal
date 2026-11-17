@@ -10,8 +10,43 @@ import { Rise } from '@/components/motion'
 import { Button } from '@/components/ui/button'
 import { MoodDot } from '@/components/ui/chip'
 import { placeholderEntries } from '@/src/lib/placeholder/entries'
+import { site } from '@/src/lib/site'
 
-export const metadata: Metadata = { title: { absolute: 'JADEN — Reflect deeper, every day' } }
+export const metadata: Metadata = {
+  title: { absolute: site.title },
+  alternates: { canonical: '/' },
+}
+
+const jsonLd = {
+  '@context': 'https://schema.org',
+  '@graph': [
+    {
+      '@type': 'Organization',
+      '@id': `${site.url}/#organization`,
+      name: site.name,
+      url: site.url,
+      logo: `${site.url}/icons/icon-512.png`,
+    },
+    {
+      '@type': 'WebSite',
+      '@id': `${site.url}/#website`,
+      name: site.name,
+      url: site.url,
+      publisher: { '@id': `${site.url}/#organization` },
+    },
+    {
+      '@type': 'WebApplication',
+      name: site.name,
+      url: site.url,
+      description: site.description,
+      applicationCategory: 'LifestyleApplication',
+      operatingSystem: 'Any',
+      image: `${site.url}/opengraph-image`,
+      offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' },
+      publisher: { '@id': `${site.url}/#organization` },
+    },
+  ],
+}
 
 const previewEntry = {
   ...placeholderEntries[0],
@@ -52,6 +87,11 @@ function float(i: number, r: string): CSSProperties {
 export default function OnboardingPage() {
   return (
     <div className="lv-paper flex min-h-dvh flex-col bg-bg lg:flex-row">
+      <script
+        type="application/ld+json"
+        // JSON-LD is static, trusted data; escape `<` so it can never close the script tag.
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, '\\u003c') }}
+      />
       {/* Copy */}
       <main className="flex flex-1 flex-col justify-center gap-8 px-6 pt-10 pb-6 sm:px-12 lg:px-20 lg:py-14 [&>*]:max-w-[560px]">
         <Rise>
