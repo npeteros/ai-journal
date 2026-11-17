@@ -1,19 +1,15 @@
-import type { z } from 'zod'
-
 import prisma from '@/src/lib/prisma'
 import { protectedProcedure } from '@/src/server/trpc/init'
-import { EntryCreateSchema } from '../../schema'
+import { EntryCreateSchema, type EntryCreateData } from '../../schema'
 import { entryTitleService } from '../../services/EntryTitleService'
 import { scheduleEntryAnalysis } from '../../services/scheduleEntryAnalysis'
 import { findOrCreateTags, getEntryDate } from './shared'
-
-type EntryCreateInput = z.infer<typeof EntryCreateSchema>
 
 // The single create path. Used by entry.create and by framework.complete,
 // so a guided entry gets the same title, tags, entry date and analysis as any other.
 export async function createEntryForUser(
   userId: string,
-  input: EntryCreateInput,
+  input: EntryCreateData,
   extra: { frameworkId?: string } = {},
 ) {
   const writtenAt = input.writtenAt === undefined ? new Date() : new Date(input.writtenAt)

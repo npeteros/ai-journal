@@ -2,7 +2,7 @@ import { Prisma } from '@/src/generated/prisma/client'
 import prisma from '@/src/lib/prisma'
 import { protectedProcedure } from '@/src/server/trpc/init'
 
-import { FrameworkCreateSchema } from './schema'
+import { FrameworkCreateSchema } from '../../schema'
 
 const slugFor = (title: string) =>
   `${

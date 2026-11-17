@@ -1,8 +1,6 @@
 import { isMainThread } from 'node:worker_threads'
 import { Mastra } from '@mastra/core/mastra'
-import { LibSQLStore } from '@mastra/libsql'
-import { DuckDBStore } from '@mastra/duckdb'
-import { MastraCompositeStore, type StorageDomains } from '@mastra/core/storage'
+import type { MastraCompositeStore, StorageDomains } from '@mastra/core/storage'
 import { entryAnalysisAgent } from './agents/entry-analysis-agent'
 import { entryTitleAgent } from './agents/entry-title-agent'
 import { insightsAgent } from './agents/insights-agent'
@@ -28,18 +26,18 @@ import { searchEntriesTool } from './tools/search-entries-tool'
 import { entryAnalysisWorkflow } from './workflows/entry-analysis-workflow'
 import { insightsWorkflow } from './workflows/insights-workflow'
 
-const globalForDuckDB = globalThis as unknown as {
-  duckDBObservability?: Promise<StorageDomains['observability']>
+const globalForMastraStorage = globalThis as unknown as {
+  mastraDevStorage?: Promise<MastraCompositeStore>
 }
 
 const isDev = process.env.NODE_ENV !== 'production'
 const isNextWorker =
   !isMainThread || /[\\/]jest-worker[\\/]processChild\.js$/.test(process.argv[1] ?? '')
 
-// Observability (tracing) is dev-only: traces go to mastra.duckdb for Studio.
-// Production and `next build` omit it, so Mastra falls back to NoOpObservability
-// and never opens DuckDB.
+// Traces go to mastra.duckdb for Studio. Falls back to an in-memory store when
+// another process holds the file lock.
 async function openObservabilityStore(): Promise<StorageDomains['observability']> {
+  const { DuckDBStore } = await import('@mastra/duckdb')
   if (!isNextWorker) {
     const fileStore = new DuckDBStore()
     try {
@@ -59,8 +57,21 @@ async function openObservabilityStore(): Promise<StorageDomains['observability']
   return new DuckDBStore({ path: ':memory:' }).observability
 }
 
-if (isDev) globalForDuckDB.duckDBObservability ??= openObservabilityStore()
-const observabilityStore = isDev ? await globalForDuckDB.duckDBObservability : undefined
+// Mastra storage is dev-only
+async function openDevStorage(): Promise<MastraCompositeStore> {
+  const [{ MastraCompositeStore }, { LibSQLStore }] = await Promise.all([
+    import('@mastra/core/storage'),
+    import('@mastra/libsql'),
+  ])
+  return new MastraCompositeStore({
+    id: 'composite-storage',
+    default: new LibSQLStore({ id: 'mastra-storage', url: 'file:./mastra.db' }),
+    domains: { observability: await openObservabilityStore() },
+  })
+}
+
+if (isDev) globalForMastraStorage.mastraDevStorage ??= openDevStorage()
+const storage = isDev ? await globalForMastraStorage.mastraDevStorage : undefined
 
 export const mastra = new Mastra({
   agents: {
@@ -86,17 +97,7 @@ export const mastra = new Mastra({
     entryTitleInjectionScorer,
     entryTitleQualityScorer,
   },
-  storage: new MastraCompositeStore({
-    id: 'composite-storage',
-    default: new LibSQLStore({
-      id: 'mastra-storage',
-      // Uses a hosted database when deployed (mastra env db create --kind turso),
-      // and a local file during development.
-      url: process.env.TURSO_DATABASE_URL ?? 'file:./mastra.db',
-      authToken: process.env.TURSO_AUTH_TOKEN,
-    }),
-    domains: observabilityStore ? { observability: observabilityStore } : {},
-  }),
+  ...(storage && { storage }),
   logger,
   ...(isDev && { observability }),
 })

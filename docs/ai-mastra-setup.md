@@ -49,10 +49,11 @@ app/dev/chat/page.tsx         # Dev-only chat UI (useChat + AI Elements)
 
 `src/mastra/index.ts` exports a single `mastra` instance. **Every agent, tool, workflow and scorer must be registered here.**
 
-- **Storage:** a `MastraCompositeStore` with two parts:
-  - **Default (memory, threads, workflow state):** `LibSQLStore`. It uses Turso when `TURSO_DATABASE_URL` is set and a local `mastra.db` file otherwise.
+- **Storage (dev only):** a `MastraCompositeStore` with two parts, for Studio:
+  - **Default (memory, threads, workflow state):** `LibSQLStore` on a local `mastra.db` file.
   - **Observability domain (traces, metrics, scores):** a local DuckDB store (`mastra.duckdb`).
   - Both local files are git-ignored.
+  - Production configures no storage. Mastra keeps workflow runs in memory, and `@mastra/libsql` / `@mastra/duckdb` are imported dynamically, so their native bindings are never loaded in production.
 - **Logger and observability:** both come from `observability.ts` (see [Observability](#observability)).
 - **Next.js:** the Mastra server packages are listed in `serverExternalPackages` in `next.config.ts`, so Next doesn't try to bundle them.
 
@@ -212,15 +213,14 @@ By default, evals force `AI_LOG_CONTENT=false`, even when a local `.env` sets it
 
 ## Environment Variables
 
-| Variable                                 | Default           | Purpose                                            |
-| ---------------------------------------- | ----------------- | -------------------------------------------------- |
-| `OPENAI_API_KEY`                         | —                 | Model provider key (agent and eval judge)          |
-| `TURSO_DATABASE_URL`, `TURSO_AUTH_TOKEN` | local `mastra.db` | Hosted LibSQL for Mastra memory and workflow state |
-| `MASTRA_PLATFORM_ACCESS_TOKEN`           | unset             | Turns on the Mastra Platform trace exporter        |
-| `AI_LOG_CONTENT`                         | `false`           | `true` keeps prompts and completions in traces     |
-| `AI_RATE_LIMIT_WINDOW_SECONDS`           | `3600`            | Rolling rate-limit window                          |
-| `AI_RATE_LIMIT_MAX_CALLS`                | `50`              | Max calls per user per window                      |
-| `LOG_LEVEL`                              | `info`            | Pino log level                                     |
+| Variable                       | Default | Purpose                                        |
+| ------------------------------ | ------- | ---------------------------------------------- |
+| `OPENAI_API_KEY`               | —       | Model provider key (agent and eval judge)      |
+| `MASTRA_PLATFORM_ACCESS_TOKEN` | unset   | Turns on the Mastra Platform trace exporter    |
+| `AI_LOG_CONTENT`               | `false` | `true` keeps prompts and completions in traces |
+| `AI_RATE_LIMIT_WINDOW_SECONDS` | `3600`  | Rolling rate-limit window                      |
+| `AI_RATE_LIMIT_MAX_CALLS`      | `50`    | Max calls per user per window                  |
+| `LOG_LEVEL`                    | `info`  | Pino log level                                 |
 
 ## Adding a New Agent
 

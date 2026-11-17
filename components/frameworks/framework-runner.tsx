@@ -6,20 +6,12 @@ import { useRouter } from 'next/navigation'
 import { ArrowLeft, ArrowRight } from 'lucide-react'
 
 import { useMutation } from '@tanstack/react-query'
-import { useTRPC } from '@/src/server/trpc/client' // verify this path against components/journal/entry-list.tsx
-
-type Prompt = { prompt: string; sample?: string }
-type FrameworkData = {
-  id: string
-  slug: string
-  title: string
-  description: string
-  minutes: number
-  prompts: Prompt[]
-}
+import { getApiErrorMessage } from '@/components/journal/api-error'
+import type { FrameworkDto } from '@/src/server/api/routers/v1/framework/core/queries/shared'
+import { useTRPC } from '@/src/server/trpc/client'
 
 /** Runs a framework one prompt at a time, then saves it as a journal entry. */
-export function FrameworkRunner({ framework }: { framework: FrameworkData }) {
+export function FrameworkRunner({ framework }: { framework: FrameworkDto }) {
   const router = useRouter()
   const total = framework.prompts.length
   const [step, setStep] = useState(0)
@@ -54,7 +46,7 @@ export function FrameworkRunner({ framework }: { framework: FrameworkData }) {
   }
 
   return (
-    <section className="flex flex-1 flex-col gap-5 py-4">
+    <section className="mx-auto flex w-full max-w-[720px] flex-1 flex-col gap-5 py-4">
       <header>
         <p className="text-[12px] font-semibold tracking-wide text-neutral-400 uppercase">
           {framework.title} · Step {step + 1} of {total}
@@ -88,7 +80,11 @@ export function FrameworkRunner({ framework }: { framework: FrameworkData }) {
         )}
         {complete.error && (
           <p role="alert" className="mt-2 text-[13px] text-neutral-900">
-            We couldn’t save your entry. Your answers are still here, so try again.
+            {/* Validation errors (e.g. answers too long) get a specific message; anything else
+                is likely transient, so invite a retry. */}
+            {complete.error.data?.code === 'BAD_REQUEST'
+              ? getApiErrorMessage(complete.error)
+              : 'We couldn’t save your entry. Your answers are still here, so try again.'}
           </p>
         )}
       </div>

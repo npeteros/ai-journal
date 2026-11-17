@@ -11,8 +11,9 @@ const PATHS = {
 
 export type FrameworkIconName = keyof typeof PATHS
 
-export function isFrameworkIconName(value: unknown): value is FrameworkIconName {
-  return typeof value === 'string' && value in PATHS
+/** `framework.icon` is a plain string in the database; this narrows it to a drawable icon. */
+export function isFrameworkIconName(name: string): name is FrameworkIconName {
+  return Object.hasOwn(PATHS, name)
 }
 
 /** Sage icon tile: 44px in the gallery, 32px in headers. */

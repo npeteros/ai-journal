@@ -3,7 +3,7 @@ import { TRPCError } from '@trpc/server'
 import prisma from '@/src/lib/prisma'
 import { protectedProcedure } from '@/src/server/trpc/init'
 
-import { FrameworkUpdateSchema } from './schema'
+import { FrameworkUpdateSchema } from '../../schema'
 
 export const updateFramework = protectedProcedure
   .input(FrameworkUpdateSchema)
