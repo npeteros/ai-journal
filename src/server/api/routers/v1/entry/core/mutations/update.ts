@@ -5,7 +5,7 @@ import { protectedProcedure } from '@/src/server/trpc/init'
 import { EntryUpdateSchema } from '../../schema'
 import { entryTitleService } from '../../services/EntryTitleService'
 import { scheduleEntryAnalysis } from '../../services/scheduleEntryAnalysis'
-import { findOrCreateTags, getEntryDate } from './shared'
+import { findOrCreateTags, getEntryDate, hasSameTags } from './shared'
 
 const EntryUpdateWithIdSchema = z.object({ id: z.uuid() }).and(EntryUpdateSchema)
 
@@ -14,7 +14,11 @@ export const updateEntry = protectedProcedure
   .mutation(async ({ ctx, input }) => {
     const existingEntry = await prisma.entry.findFirst({
       where: { id: input.id, userId: ctx.user.id, deletedAt: null },
-      select: { body: true, title: true },
+      select: {
+        body: true,
+        title: true,
+        tags: { select: { tag: { select: { normalizedName: true, deletedAt: true } } } },
+      },
     })
 
     if (!existingEntry) {
@@ -28,7 +32,8 @@ export const updateEntry = protectedProcedure
         : input.title
 
     const entry = await prisma.$transaction(async (tx) => {
-      if (input.tags !== undefined) {
+      // Autosave sends the tags with every save; leave the links alone when they haven't changed.
+      if (input.tags !== undefined && !hasSameTags(existingEntry.tags, input.tags)) {
         const tags = await findOrCreateTags(tx, ctx.user.id, input.tags)
 
         await tx.entryTag.deleteMany({ where: { entryId: input.id } })
