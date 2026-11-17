@@ -13,7 +13,8 @@ export default async function FrameworkEditPage(props: { params: Promise<{ slug:
   const framework = await getQueryClient()
     .fetchQuery(trpc.v1.framework.findOneBySlug.queryOptions({ slug }))
     .catch(() => null)
-  if (!framework) notFound()
+  // Built-in templates and other users' frameworks can't be updated, so there is nothing to edit.
+  if (!framework?.isOwn) notFound()
 
   return (
     <Page tone="meadow" className="lg:pt-8">
