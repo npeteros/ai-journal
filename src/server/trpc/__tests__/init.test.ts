@@ -62,6 +62,20 @@ describe('createTRPCContext', () => {
     expect(ctx.user).toBeNull()
   })
 
+  it('forwards refreshed session cookies to the response when given response headers', async () => {
+    const authHeaders = new Headers()
+    authHeaders.append('set-cookie', 'better-auth.session_data=fresh; Path=/; HttpOnly')
+    getSession.mockResolvedValueOnce({ headers: authHeaders, response: validSession } as never)
+    const headers = new Headers({ cookie: 'better-auth.session_token=abc' })
+    const resHeaders = new Headers()
+
+    const ctx = await createTRPCContext({ headers, resHeaders })
+
+    expect(getSession).toHaveBeenCalledWith({ headers, returnHeaders: true })
+    expect(resHeaders.getSetCookie()).toEqual(['better-auth.session_data=fresh; Path=/; HttpOnly'])
+    expect(ctx).toEqual({ headers, session: validSession.session, user: validSession.user })
+  })
+
   it('reuses a provided session lookup instead of querying again', async () => {
     const headers = new Headers()
 

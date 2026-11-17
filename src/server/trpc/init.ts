@@ -3,17 +3,32 @@ import { auth } from '@/src/server/auth/auth'
 
 type SessionResult = Awaited<ReturnType<typeof auth.api.getSession>>
 
+/** Looks up the session and copies any refreshed session cookies onto the response. */
+async function getSessionForwardingCookies(headers: Headers, resHeaders: Headers) {
+  const { headers: authHeaders, response } = await auth.api.getSession({
+    headers,
+    returnHeaders: true,
+  })
+  for (const cookie of authHeaders.getSetCookie()) resHeaders.append('set-cookie', cookie)
+  return response
+}
+
 /**
- * `getSession` lets server-side callers reuse a session already looked up for this request
- * (see `src/server/trpc/server.tsx`) instead of querying it again.
+ * - `getSession` lets server-side callers reuse a session already looked up for this request
+ *   (see `src/server/trpc/server.tsx`) instead of querying it again.
+ * - `resHeaders` (the HTTP route) receives the session cookie cache whenever better-auth renews
+ *   it, which keeps the cache warm while the app is in use.
  */
 export const createTRPCContext = async (opts: {
   headers: Headers
+  resHeaders?: Headers
   getSession?: () => Promise<SessionResult>
 }) => {
   const result = opts.getSession
     ? await opts.getSession()
-    : await auth.api.getSession({ headers: opts.headers })
+    : opts.resHeaders
+      ? await getSessionForwardingCookies(opts.headers, opts.resHeaders)
+      : await auth.api.getSession({ headers: opts.headers })
 
   return {
     headers: opts.headers,
