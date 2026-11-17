@@ -26,6 +26,22 @@ export const FrameworkCompleteSchema = z.object({
   timeZone: timeZoneSchema,
 })
 
+export const FRAMEWORK_ICONS = ['layers', 'globe', 'check', 'compass', 'heart'] as const
+
+export const FrameworkCreateSchema = z.object({
+  title: z.string().trim().min(1).max(60),
+  description: z.string().trim().max(140).default(''),
+  icon: z.enum(FRAMEWORK_ICONS),
+  prompts: z.array(z.string().trim().min(1).max(200)).min(1).max(10),
+  minutes: z.int().min(1).max(120).optional(),
+})
+
+export const FrameworkUpdateSchema = FrameworkCreateSchema.extend({ id: z.uuid() })
+
+export const FrameworkDeleteSchema = z.object({ id: z.uuid() })
+
+export type FrameworkCreateInput = z.input<typeof FrameworkCreateSchema>
+
 export type FrameworkPrompt = z.output<typeof FrameworkPromptsSchema>[number]
 export type FrameworkSlugInput = z.input<typeof FrameworkSlugSchema>
 export type FrameworkCompleteInput = z.input<typeof FrameworkCompleteSchema>

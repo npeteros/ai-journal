@@ -10,12 +10,18 @@ export const frameworkSelect = {
   minutes: true,
   icon: true,
   prompts: true,
+  userId: true,
 } satisfies Prisma.FrameworkSelect
 
 type FrameworkRow = Prisma.FrameworkGetPayload<{ select: typeof frameworkSelect }>
 
-export function toFrameworkDto(row: FrameworkRow) {
-  return { ...row, prompts: FrameworkPromptsSchema.parse(row.prompts) }
+/** `isOwn` replaces the raw owner id: built-in templates are never the viewer's own. */
+export function toFrameworkDto({ userId: ownerId, ...row }: FrameworkRow, userId: string) {
+  return {
+    ...row,
+    prompts: FrameworkPromptsSchema.parse(row.prompts),
+    isOwn: ownerId === userId,
+  }
 }
 
 export type FrameworkDto = ReturnType<typeof toFrameworkDto>
@@ -34,7 +40,7 @@ export async function findManyFrameworksForUser(userId: string) {
     select: frameworkSelect,
     orderBy: [{ createdAt: 'asc' }, { slug: 'asc' }],
   })
-  return rows.map(toFrameworkDto)
+  return rows.map((row) => toFrameworkDto(row, userId))
 }
 
 export async function findOneFrameworkBySlugForUser(userId: string, slug: string) {
@@ -42,5 +48,5 @@ export async function findOneFrameworkBySlugForUser(userId: string, slug: string
     where: { ...frameworkWhereForUser(userId), slug },
     select: frameworkSelect,
   })
-  return row ? toFrameworkDto(row) : null
+  return row ? toFrameworkDto(row, userId) : null
 }

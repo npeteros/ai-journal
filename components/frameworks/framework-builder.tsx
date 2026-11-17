@@ -1,16 +1,48 @@
 'use client'
 
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { useState } from 'react'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Reorder, useDragControls } from 'motion/react'
 import { GripVertical, Plus, X } from 'lucide-react'
 
+import { getApiErrorMessage } from '@/components/journal/api-error'
 import { Button } from '@/components/ui/button'
 import { SectionLabel } from '@/components/ui/card'
+import {
+  FRAMEWORK_ICONS,
+  FrameworkCreateSchema,
+} from '@/src/server/api/routers/v1/framework/schema'
+import { useTRPC } from '@/src/server/trpc/client'
+import { FrameworkIcon, type FrameworkIconName } from './framework-icon'
 
 type Prompt = { id: string; text: string }
 
-function PromptRow({ prompt, onRemove }: { prompt: Prompt; onRemove: () => void }) {
+type Initial = { title: string; description: string; icon: FrameworkIconName; prompts: string[] }
+
+const MESSAGES: Record<string, string> = {
+  title: 'Name must be 1–60 characters.',
+  description: 'Description can be up to 140 characters.',
+  icon: 'Pick an icon.',
+  prompts: 'Add 1–10 prompts.',
+  prompt: 'Prompts must be 1–200 characters.',
+}
+
+const ErrorText = ({ text }: { text?: string }) =>
+  text ? <p className="text-[12px] font-medium text-rose-500">{text}</p> : null
+
+function PromptRow({
+  prompt,
+  error,
+  onChange,
+  onRemove,
+}: {
+  prompt: Prompt
+  error?: string
+  onChange: (text: string) => void
+  onRemove: () => void
+}) {
   const controls = useDragControls()
   return (
     <Reorder.Item
@@ -18,42 +50,100 @@ function PromptRow({ prompt, onRemove }: { prompt: Prompt; onRemove: () => void 
       dragListener={false}
       dragControls={controls}
       whileDrag={{ scale: 1.02, boxShadow: 'var(--shadow-md)' }}
-      className="lv-card flex items-center gap-2.5 rounded-xl py-3 pr-3 pl-2.5"
+      className="flex flex-col gap-1"
     >
-      <button
-        type="button"
-        aria-label="Drag to reorder"
-        onPointerDown={(e) => controls.start(e)}
-        className="cursor-grab touch-none text-neutral-400 active:cursor-grabbing"
-      >
-        <GripVertical className="size-4" />
-      </button>
-      <span className="flex-1 text-[14px] text-neutral-900">{prompt.text}</span>
-      <button
-        type="button"
-        aria-label={`Remove "${prompt.text}"`}
-        onClick={onRemove}
-        className="text-neutral-400 hover:text-neutral-900"
-      >
-        <X className="size-4" strokeWidth={2} />
-      </button>
+      <div className="lv-card flex items-center gap-2.5 rounded-xl py-3 pr-3 pl-2.5">
+        <button
+          type="button"
+          aria-label="Drag to reorder"
+          onPointerDown={(e) => controls.start(e)}
+          className="cursor-grab touch-none text-neutral-400 active:cursor-grabbing"
+        >
+          <GripVertical className="size-4" />
+        </button>
+        <input
+          aria-label="Prompt"
+          aria-invalid={!!error}
+          value={prompt.text}
+          maxLength={200}
+          onChange={(e) => onChange(e.target.value)}
+          className="flex-1 bg-transparent text-[14px] text-neutral-900 outline-none"
+        />
+        <button
+          type="button"
+          aria-label={`Remove "${prompt.text}"`}
+          onClick={onRemove}
+          className="text-neutral-400 hover:text-neutral-900"
+        >
+          <X className="size-4" strokeWidth={2} />
+        </button>
+      </div>
+      <ErrorText text={error} />
     </Reorder.Item>
   )
 }
 
-/** Build a custom framework: name it, add prompts, drag to reorder. */
-export function FrameworkBuilder({ initial }: { initial: { title: string; prompts: string[] } }) {
+export function FrameworkBuilder({
+  initial,
+  frameworkId,
+}: {
+  initial: Initial
+  frameworkId?: string
+}) {
+  const router = useRouter()
+  const trpc = useTRPC()
+  const queryClient = useQueryClient()
   const [title, setTitle] = useState(initial.title)
+  const [description, setDescription] = useState(initial.description)
+  const [icon, setIcon] = useState(initial.icon)
   const [prompts, setPrompts] = useState<Prompt[]>(() =>
     initial.prompts.map((text, i) => ({ id: `p${i}`, text })),
   )
   const [draft, setDraft] = useState('')
+  const [errors, setErrors] = useState<Record<string, string>>({})
+
+  const done = async (href: string) => {
+    await queryClient.invalidateQueries(trpc.v1.framework.pathFilter())
+    router.push(href)
+    router.refresh()
+  }
+  const create = useMutation(
+    trpc.v1.framework.create.mutationOptions({
+      onSuccess: ({ slug }) => done(`/frameworks/${slug}`),
+    }),
+  )
+  const update = useMutation(
+    trpc.v1.framework.update.mutationOptions({ onSuccess: () => done('/frameworks') }),
+  )
+  const saving = create.isPending || update.isPending
+  const saveError = create.error ?? update.error
+  const full = prompts.length >= 10
 
   function add() {
     const text = draft.trim()
-    if (!text) return
+    if (!text || full) return
     setPrompts((prev) => [...prev, { id: `p${Date.now()}`, text }])
     setDraft('')
+  }
+
+  function save() {
+    const parsed = FrameworkCreateSchema.safeParse({
+      title,
+      description,
+      icon,
+      prompts: prompts.map((p) => p.text),
+    })
+    if (!parsed.success) {
+      const next: Record<string, string> = {}
+      for (const { path } of parsed.error.issues) {
+        const key = path.length > 1 ? `prompt.${String(path[1])}` : String(path[0])
+        next[key] ??= MESSAGES[path.length > 1 ? 'prompt' : key]
+      }
+      return setErrors(next)
+    }
+    setErrors({})
+    if (frameworkId) update.mutate({ id: frameworkId, ...parsed.data })
+    else create.mutate(parsed.data)
   }
 
   return (
@@ -66,13 +156,20 @@ export function FrameworkBuilder({ initial }: { initial: { title: string; prompt
           Cancel
         </Link>
         <h1 className="font-serif text-[16px] font-semibold text-neutral-900 lg:text-[20px]">
-          New framework
+          {frameworkId ? 'Edit framework' : 'New framework'}
         </h1>
-        <Button asChild variant="ink-flat" size="md" className="px-[22px] text-[14px]">
-          {/* Placeholder: persist the framework */}
-          <Link href="/frameworks">Save</Link>
+        <Button
+          variant="ink-flat"
+          size="md"
+          className="px-[22px] text-[14px]"
+          disabled={saving}
+          onClick={save}
+        >
+          {saving ? 'Saving…' : 'Save'}
         </Button>
       </div>
+
+      {saveError && <ErrorText text={getApiErrorMessage(saveError)} />}
 
       <label className="sr-only" htmlFor="framework-title">
         Framework name
@@ -80,12 +177,48 @@ export function FrameworkBuilder({ initial }: { initial: { title: string; prompt
       <input
         id="framework-title"
         value={title}
+        maxLength={60}
+        aria-invalid={!!errors.title}
         onChange={(e) => setTitle(e.target.value)}
         placeholder="Name your framework"
         className="h-12 rounded-xl border border-neutral-200 bg-surface px-4 font-serif text-[15px] font-semibold text-neutral-900 outline-none focus:border-neutral-400"
       />
+      <ErrorText text={errors.title} />
 
-      <SectionLabel className="mt-1 font-semibold tracking-[0.05em]">Prompts</SectionLabel>
+      <label className="sr-only" htmlFor="framework-description">
+        Description
+      </label>
+      <input
+        id="framework-description"
+        value={description}
+        maxLength={140}
+        onChange={(e) => setDescription(e.target.value)}
+        placeholder="A short description (optional)"
+        className="h-11 rounded-xl border border-neutral-200 bg-surface px-4 text-[14px] text-neutral-900 outline-none focus:border-neutral-400"
+      />
+      <ErrorText text={errors.description} />
+
+      <SectionLabel className="mt-1 font-semibold tracking-[0.05em]">Icon</SectionLabel>
+      <div className="flex gap-2.5">
+        {FRAMEWORK_ICONS.map((name) => (
+          <button
+            key={name}
+            type="button"
+            aria-label={name}
+            aria-pressed={icon === name}
+            onClick={() => setIcon(name)}
+            className={
+              icon === name ? 'rounded-[12px] ring-2 ring-sage-700' : 'opacity-60 hover:opacity-100'
+            }
+          >
+            <FrameworkIcon name={name} size={40} />
+          </button>
+        ))}
+      </div>
+
+      <SectionLabel className="mt-1 font-semibold tracking-[0.05em]">
+        Prompts · {prompts.length}/10
+      </SectionLabel>
 
       <Reorder.Group
         axis="y"
@@ -93,14 +226,19 @@ export function FrameworkBuilder({ initial }: { initial: { title: string; prompt
         onReorder={setPrompts}
         className="flex flex-col gap-2.5"
       >
-        {prompts.map((p) => (
+        {prompts.map((p, i) => (
           <PromptRow
             key={p.id}
             prompt={p}
+            error={errors[`prompt.${i}`]}
+            onChange={(text) =>
+              setPrompts((prev) => prev.map((x) => (x.id === p.id ? { ...x, text } : x)))
+            }
             onRemove={() => setPrompts((prev) => prev.filter((x) => x.id !== p.id))}
           />
         ))}
       </Reorder.Group>
+      <ErrorText text={errors.prompts} />
 
       <form
         onSubmit={(e) => {
@@ -117,14 +255,17 @@ export function FrameworkBuilder({ initial }: { initial: { title: string; prompt
           <input
             id="new-prompt"
             value={draft}
+            maxLength={200}
+            disabled={full}
             onChange={(e) => setDraft(e.target.value)}
-            placeholder="Add a prompt…"
+            placeholder={full ? 'Prompt limit reached' : 'Add a prompt…'}
             className="flex-1 bg-transparent text-[14px] text-neutral-900 outline-none placeholder:text-neutral-400"
           />
         </div>
         <Button
           type="submit"
           variant="soft"
+          disabled={full}
           className="h-[46px] rounded-xl text-[14px] font-semibold text-neutral-600"
         >
           <Plus className="size-[15px]" />
