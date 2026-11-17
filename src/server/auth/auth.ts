@@ -2,7 +2,20 @@ import { betterAuth } from 'better-auth'
 import { prismaAdapter } from 'better-auth/adapters/prisma'
 import prisma from '@/src/lib/prisma'
 
+/**
+ * Preview deployments are served from their own hostnames (the per-deployment URL and the branch
+ * alias), not `BETTER_AUTH_URL`, so better-auth would reject their sign-in requests as
+ * INVALID_ORIGIN. Trust exactly those two hostnames, and only on previews.
+ */
+export function previewOrigins(): string[] {
+  if (process.env.VERCEL_ENV !== 'preview') return []
+  return [process.env.VERCEL_URL, process.env.VERCEL_BRANCH_URL]
+    .filter((host): host is string => !!host)
+    .map((host) => `https://${host}`)
+}
+
 export const auth = betterAuth({
+  trustedOrigins: previewOrigins(),
   database: prismaAdapter(prisma, {
     provider: 'postgresql',
   }),
