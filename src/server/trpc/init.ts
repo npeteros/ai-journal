@@ -1,8 +1,19 @@
 import { initTRPC, TRPCError } from '@trpc/server'
 import { auth } from '@/src/server/auth/auth'
 
-export const createTRPCContext = async (opts: { headers: Headers }) => {
-  const result = await auth.api.getSession({ headers: opts.headers })
+type SessionResult = Awaited<ReturnType<typeof auth.api.getSession>>
+
+/**
+ * `getSession` lets server-side callers reuse a session already looked up for this request
+ * (see `src/server/trpc/server.tsx`) instead of querying it again.
+ */
+export const createTRPCContext = async (opts: {
+  headers: Headers
+  getSession?: () => Promise<SessionResult>
+}) => {
+  const result = opts.getSession
+    ? await opts.getSession()
+    : await auth.api.getSession({ headers: opts.headers })
 
   return {
     headers: opts.headers,

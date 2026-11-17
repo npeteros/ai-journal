@@ -61,6 +61,15 @@ describe('createTRPCContext', () => {
     expect(ctx.session).toBeNull()
     expect(ctx.user).toBeNull()
   })
+
+  it('reuses a provided session lookup instead of querying again', async () => {
+    const headers = new Headers()
+
+    const ctx = await createTRPCContext({ headers, getSession: async () => validSession })
+
+    expect(getSession).not.toHaveBeenCalled()
+    expect(ctx).toEqual({ headers, session: validSession.session, user: validSession.user })
+  })
 })
 
 describe('protectedProcedure', () => {
