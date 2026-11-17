@@ -12,6 +12,9 @@ const nextConfig: NextConfig = {
     '@mastra/memory',
     '@mastra/observability',
   ],
+  experimental: {
+    agentUpgrade: 'security',
+  },
 }
 
 export default nextConfig
