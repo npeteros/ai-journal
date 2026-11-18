@@ -13,4 +13,7 @@ export const deleteAccountSchema = z.object({
     .refine((value) => value === DELETE_CONFIRMATION, `Type ${DELETE_CONFIRMATION} to confirm.`),
 })
 
-export type DeleteAccountValues = z.infer<typeof deleteAccountSchema>
+/** What the form holds while the user types (`confirmation` is any string until validated). */
+export type DeleteAccountInput = z.input<typeof deleteAccountSchema>
+/** What passes validation (`confirmation` is narrowed to `'DELETE'` by the refine). */
+export type DeleteAccountValues = z.output<typeof deleteAccountSchema>

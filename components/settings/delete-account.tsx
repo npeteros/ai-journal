@@ -15,6 +15,7 @@ import {
   ACCOUNT_DELETION_GRACE_DAYS,
   DELETE_CONFIRMATION,
   deleteAccountSchema,
+  type DeleteAccountInput,
   type DeleteAccountValues,
 } from '@/src/server/auth/schemas/delete-account'
 import { useTRPC } from '@/src/server/trpc/client'
@@ -35,7 +36,7 @@ export function DeleteAccount() {
     handleSubmit,
     setError,
     formState: { errors, isSubmitting },
-  } = useForm<DeleteAccountValues>({
+  } = useForm<DeleteAccountInput, unknown, DeleteAccountValues>({
     resolver: zodResolver(deleteAccountSchema),
     defaultValues: { password: '', confirmation: '' },
   })
