@@ -27,6 +27,16 @@ export const shiftDay = (day: string, days: number) => {
   return d.toISOString().slice(0, 10)
 }
 
+/** First day of a "YYYY-MM" month, as a UTC Date for `@db.Date` comparisons. */
+export const monthStart = (month: string) => new Date(`${month}-01T00:00:00Z`)
+
+/** Moves a "YYYY-MM" month by `months`, with no time zone involved. */
+export const shiftMonth = (month: string, months: number) => {
+  const d = monthStart(month)
+  d.setUTCMonth(d.getUTCMonth() + months)
+  return d.toISOString().slice(0, 7)
+}
+
 /** Pure part of getEntryStats: one row per distinct entryDate in, stats out. */
 export function computeEntryStats(rows: DayCount[], timeZone: string, now: Date): EntryStats {
   const countByDay = new Map(rows.map((r) => [r.entryDate, r.count]))

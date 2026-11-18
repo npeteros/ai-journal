@@ -29,6 +29,7 @@ model User {
   frameworks         Framework[]
   insightReport      InsightReport?
   personalityProfile PersonalityProfile?
+  monthlyStories     MonthlyStory[]
 
   @@unique([email])
   @@map("user")
@@ -182,6 +183,25 @@ model PersonalityProfile {
   updatedAt    DateTime  @updatedAt @db.Timestamptz
 
   @@map("personality_profile")
+}
+
+model MonthlyStory {
+  id           String    @id @default(uuid()) @db.Uuid
+  userId       String
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  month        String
+  summary      String?
+  model        String?
+  generatedAt  DateTime? @db.Timestamptz
+  fingerprint  String?
+  generatingAt DateTime? @db.Timestamptz
+  failedAt     DateTime? @db.Timestamptz
+  lastError    String?
+  createdAt    DateTime  @default(now()) @db.Timestamptz
+  updatedAt    DateTime  @updatedAt @db.Timestamptz
+
+  @@unique([userId, month])
+  @@map("monthly_story")
 }
 
 model Tag {

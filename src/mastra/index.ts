@@ -6,6 +6,7 @@ import { entryTitleAgent } from './agents/entry-title-agent'
 import { insightsAgent } from './agents/insights-agent'
 import { personalityAgent } from './agents/personality-agent'
 import { journalCompanionAgent } from './agents/journal-companion-agent'
+import { monthlyStoryAgent } from './agents/monthly-story-agent'
 import { voiceCompanionAgent } from './agents/voice-companion-agent'
 import { voiceDraftAgent } from './agents/voice-draft-agent'
 import { logger, observability } from './observability'
@@ -91,6 +92,7 @@ export const mastra = new Mastra({
     entryTitleAgent,
     entryAnalysisAgent,
     insightsAgent,
+    monthlyStoryAgent,
     personalityAgent,
     voiceCompanionAgent,
     voiceDraftAgent,
