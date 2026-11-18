@@ -17,6 +17,12 @@ export const PERSONALITY_SUMMARY_MAX_LENGTH = 280
 export const PERSONALITY_MEANING_MAX_LENGTH = 1_200
 export const PERSONALITY_TRAIT_MAX_EVIDENCE_ENTRIES = 20
 
+// Generation timing lives here (not in the service) so the client can bound polling by it.
+export const PERSONALITY_PROFILE_LOCK_TIMEOUT_MS = 5 * 60 * 1000
+export const PERSONALITY_PROFILE_LOCK_SAFETY_MS = 2 * 60 * 1000
+export const PERSONALITY_PROFILE_GENERATION_TIMEOUT_MS =
+  PERSONALITY_PROFILE_LOCK_TIMEOUT_MS - PERSONALITY_PROFILE_LOCK_SAFETY_MS
+
 export const PersonalityLevelSchema = z.enum(['Low', 'Moderate', 'High'])
 export type PersonalityLevel = z.infer<typeof PersonalityLevelSchema>
 

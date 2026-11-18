@@ -79,6 +79,11 @@ export const generatePersonalityProfileStep = createStep({
       PERSONALITY_MODEL,
       (input) => generatePersonalityProfile(input, requestContext),
     )
+    // Tripwires fail the step (src/mastra/AGENTS.md). The service has already released the claim
+    // with a durable cooldown, so the scheduler's claim-fenced cleanup is a no-op.
+    if (status === 'rate_limited') {
+      throw new Error('Personality profile generation was rate limited')
+    }
     return { status }
   },
 })

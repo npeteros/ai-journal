@@ -11,6 +11,10 @@ import {
 const ENTRY_ID = '00000000-0000-4000-8000-000000000001'
 const SECOND_ENTRY_ID = '00000000-0000-4000-8000-000000000002'
 
+// tRPC's real unprefixed key shape: [path, { type }]. A key of 3+ elements is parsed as prefixed
+// and breaks the query function, so the component must use this key unchanged.
+const QUERY_KEY = [['v1', 'insights', 'personality'], { type: 'query' }]
+
 const mocks = vi.hoisted(() => ({ personality: vi.fn() }))
 
 vi.mock('@/src/server/trpc/client', () => ({
@@ -18,7 +22,7 @@ vi.mock('@/src/server/trpc/client', () => ({
     v1: {
       insights: {
         personality: {
-          queryOptions: () => ({ queryKey: ['personality'], queryFn: mocks.personality }),
+          queryOptions: () => ({ queryKey: QUERY_KEY, queryFn: mocks.personality }),
         },
       },
     },
@@ -42,35 +46,35 @@ function response(overrides: Partial<PersonalityData> = {}): PersonalityData {
           label: 'Openness',
           score: 76,
           level: 'High',
-          evidenceEntryIds: [ENTRY_ID],
+          evidence: [{ id: ENTRY_ID, entryDate: '2026-11-01T00:00:00.000Z' }],
         },
         {
           trait: 'conscientiousness',
           label: 'Conscientiousness',
           score: 58,
           level: 'Moderate',
-          evidenceEntryIds: [SECOND_ENTRY_ID],
+          evidence: [{ id: SECOND_ENTRY_ID, entryDate: '2026-11-05T00:00:00.000Z' }],
         },
         {
           trait: 'extraversion',
           label: 'Extraversion',
           score: 33,
           level: 'Low',
-          evidenceEntryIds: [ENTRY_ID],
+          evidence: [{ id: ENTRY_ID, entryDate: '2026-11-01T00:00:00.000Z' }],
         },
         {
           trait: 'agreeableness',
           label: 'Agreeableness',
           score: 67,
           level: 'High',
-          evidenceEntryIds: [SECOND_ENTRY_ID],
+          evidence: [{ id: SECOND_ENTRY_ID, entryDate: '2026-11-05T00:00:00.000Z' }],
         },
         {
           trait: 'neuroticism',
           label: 'Emotional stability',
           score: 70,
           level: 'High',
-          evidenceEntryIds: [ENTRY_ID],
+          evidence: [{ id: ENTRY_ID, entryDate: '2026-11-01T00:00:00.000Z' }],
         },
       ],
     },
@@ -78,14 +82,14 @@ function response(overrides: Partial<PersonalityData> = {}): PersonalityData {
   }
 }
 
-function renderInsights(data = response(), userId = 'user-1') {
+function renderInsights(data: PersonalityData | null = response()) {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false, staleTime: Infinity } },
   })
-  queryClient.setQueryData(['personality', userId], data)
+  if (data) queryClient.setQueryData(QUERY_KEY, data)
   return render(
     <QueryClientProvider client={queryClient}>
-      <PersonalityInsights userId={userId} />
+      <PersonalityInsights />
     </QueryClientProvider>,
   )
 }
@@ -105,13 +109,22 @@ describe('Personality insights UI', () => {
     expect(mocks.personality).not.toHaveBeenCalled()
   })
 
-  it('links only API-provided evidence to the journal', () => {
+  it('shows the evidence entries for each trait separately', () => {
     renderInsights()
-    const links = screen.getAllByRole('link', { name: /Journal entry/i })
 
-    expect(links).toHaveLength(2)
-    expect(links[0]?.getAttribute('href')).toBe(`/journal/${ENTRY_ID}`)
-    expect(links[1]?.getAttribute('href')).toBe(`/journal/${SECOND_ENTRY_ID}`)
+    const extraversion = screen.getByRole('link', { name: /^Extraversion: journal entry/ })
+    expect(extraversion.getAttribute('href')).toBe(`/journal/${ENTRY_ID}`)
+    const agreeableness = screen.getByRole('link', { name: /^Agreeableness: journal entry/ })
+    expect(agreeableness.getAttribute('href')).toBe(`/journal/${SECOND_ENTRY_ID}`)
+    expect(screen.getAllByRole('link', { name: /journal entry/ })).toHaveLength(5)
+  })
+
+  it('shows a loading state, not an unavailable message, while the streamed query is pending', () => {
+    mocks.personality.mockReturnValue(new Promise(() => undefined))
+    renderInsights(null)
+
+    expect(screen.getByLabelText('Loading reflection')).toBeTruthy()
+    expect(screen.queryByText('Reflection unavailable')).toBeNull()
   })
 
   it('removes an invalidated profile immediately when entries are insufficient', () => {
@@ -142,52 +155,15 @@ describe('Personality insights UI', () => {
     expect(screen.queryByText('The Big Five')).toBeNull()
   })
 
-  it('polls only active non-cooldown work and stops at the two-minute bound', () => {
+  it('polls only active non-cooldown work and stops at the generation lease bound', () => {
     const updating = response({ status: 'updating' })
     expect(nextPersonalityPollInterval(updating, 0, 1)).toBe(4_000)
+    // A run may take up to the three-minute model deadline; polling must outlast it.
+    expect(nextPersonalityPollInterval(updating, 0, 3 * 60 * 1_000)).toBe(4_000)
     expect(nextPersonalityPollInterval(updating, 0, PERSONALITY_POLL_TIMEOUT_MS)).toBe(false)
     expect(nextPersonalityPollInterval(response(), 0, 1)).toBe(false)
     expect(
       nextPersonalityPollInterval(response({ status: 'updating', retryAfter: 'future' }), 0, 1),
     ).toBe(false)
-  })
-
-  it('uses separate hydrated caches for separate authenticated users', () => {
-    const queryClient = new QueryClient({
-      defaultOptions: { queries: { retry: false, staleTime: Infinity } },
-    })
-    queryClient.setQueryData(['personality', 'user-1'], response())
-    queryClient.setQueryData(
-      ['personality', 'user-2'],
-      response({ profile: null, unavailable: true }),
-    )
-
-    render(
-      <QueryClientProvider client={queryClient}>
-        <PersonalityInsights userId="user-2" />
-      </QueryClientProvider>,
-    )
-    expect(screen.getByText('Reflection unavailable')).toBeTruthy()
-    expect(screen.queryByText('The Big Five')).toBeNull()
-  })
-
-  it('does not retain a prior user profile while a new authenticated user query loads', () => {
-    mocks.personality.mockReturnValue(new Promise(() => undefined))
-    const queryClient = new QueryClient({
-      defaultOptions: { queries: { retry: false, staleTime: Infinity } },
-    })
-    queryClient.setQueryData(['personality', 'user-1'], response())
-    const rendered = render(
-      <QueryClientProvider client={queryClient}>
-        <PersonalityInsights userId="user-1" />
-      </QueryClientProvider>,
-    )
-
-    rendered.rerender(
-      <QueryClientProvider client={queryClient}>
-        <PersonalityInsights userId="user-2" />
-      </QueryClientProvider>,
-    )
-    expect(screen.queryByText('The Big Five')).toBeNull()
   })
 })

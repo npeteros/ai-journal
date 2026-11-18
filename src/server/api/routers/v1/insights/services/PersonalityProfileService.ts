@@ -2,15 +2,21 @@ import type { IMastraLogger } from '@mastra/core/logger'
 import { isMastraTimeoutError } from '@mastra/core/loop'
 import prisma from '@/src/lib/prisma'
 import { logger } from '@/src/mastra/observability'
-import { filterOwnedPersonalityProfile, type PersonalityProfileData } from '../personality-schema'
+import {
+  PERSONALITY_PROFILE_LOCK_TIMEOUT_MS,
+  filterOwnedPersonalityProfile,
+  type PersonalityProfileData,
+} from '../personality-schema'
+
+export {
+  PERSONALITY_PROFILE_GENERATION_TIMEOUT_MS,
+  PERSONALITY_PROFILE_LOCK_SAFETY_MS,
+  PERSONALITY_PROFILE_LOCK_TIMEOUT_MS,
+} from '../personality-schema'
 
 export const PERSONALITY_PROFILE_MIN_ANALYZED_ENTRIES = 20
 export const PERSONALITY_PROFILE_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000
 export const PERSONALITY_PROFILE_MIN_NEW_ENTRIES = 10
-export const PERSONALITY_PROFILE_LOCK_TIMEOUT_MS = 5 * 60 * 1000
-export const PERSONALITY_PROFILE_LOCK_SAFETY_MS = 2 * 60 * 1000
-export const PERSONALITY_PROFILE_GENERATION_TIMEOUT_MS =
-  PERSONALITY_PROFILE_LOCK_TIMEOUT_MS - PERSONALITY_PROFILE_LOCK_SAFETY_MS
 /** Applied when a failed run has no more specific provider or rate-limit reset deadline. */
 export const PERSONALITY_PROFILE_FAILURE_COOLDOWN_MS = 5 * 60 * 1000
 export const PERSONALITY_PROFILE_MAX_METADATA_SOURCES = 100
@@ -119,8 +125,9 @@ function cooldownAfter(now: Date, requested?: Date): Date {
     : new Date(now.getTime() + PERSONALITY_PROFILE_FAILURE_COOLDOWN_MS)
 }
 
+// "Neurotic..." is blocked because the UI presents that trait inverted, as Emotional stability.
 const UNSAFE_PERSONALITY_NARRATIVE =
-  /\b(?:diagnos(?:e|is|tic)|mental[- ]health disorder|anxiety disorder|depression|clinical|psychological assessment|scientific(?:ally)? valid|superior|inferior|better trait|worse trait)\b/i
+  /\b(?:diagnos(?:e|is|tic)|mental[- ]health disorder|anxiety disorder|depression|clinical|psychological assessment|scientific(?:ally)? valid|superior|inferior|better trait|worse trait|neurotic\w*)\b/i
 
 function normalizedNarrative(value: string): string {
   return value.trim().replace(/\s+/g, ' ').toLowerCase()
@@ -210,7 +217,8 @@ export const prismaPersonalityProfileRepository: PersonalityProfileRepository = 
           { OR: [{ retryAfter: null }, { retryAfter: { lte: claimedAt } }] },
         ],
       },
-      data: { generatingAt: claimedAt },
+      // An expired cooldown must not outlive the run that replaced it; clients stop polling on it.
+      data: { generatingAt: claimedAt, retryAfter: null },
     })
     return claimed.count === 1
   },
@@ -317,8 +325,11 @@ export class PersonalityProfileService {
 
   async isStale(userId: string): Promise<boolean> {
     if ((await this.remainingEntries(userId)) > 0) return false
+    return this.isProfileStale(userId, await this.repository.findProfile(userId))
+  }
 
-    const profile = await this.repository.findProfile(userId)
+  /** Staleness of an already-loaded profile, for a user already known to have enough entries. */
+  async isProfileStale(userId: string, profile: PersonalityProfileState | null): Promise<boolean> {
     if (!profile?.generatedAt) return true
     if (profile.generatedAt.getTime() > this.now().getTime() - PERSONALITY_PROFILE_MAX_AGE_MS) {
       return false
@@ -329,20 +340,31 @@ export class PersonalityProfileService {
     )
   }
 
+  /**
+   * Claims a regeneration when one is due. Callers that already loaded the profile and checked the
+   * entry minimum and staleness pass `preloaded` so those reads are not repeated.
+   */
   async tryStart(
     userId: string,
-    options: { forceInvalidProfile?: boolean } = {},
+    options: {
+      forceInvalidProfile?: boolean
+      preloaded?: { profile: PersonalityProfileState | null; stale: boolean }
+    } = {},
   ): Promise<PersonalityProfileStartResult> {
     const now = this.now()
-    const missingEntries = await this.remainingEntries(userId)
-    if (missingEntries > 0) return { status: 'not_enough_entries', missingEntries }
+    const { preloaded } = options
+    if (!preloaded) {
+      const missingEntries = await this.remainingEntries(userId)
+      if (missingEntries > 0) return { status: 'not_enough_entries', missingEntries }
+    }
 
-    const profile = await this.repository.findProfile(userId)
+    const profile = preloaded ? preloaded.profile : await this.repository.findProfile(userId)
     if (profile?.retryAfter && profile.retryAfter.getTime() > now.getTime()) {
       return { status: 'cooldown', retryAfter: profile.retryAfter }
     }
 
-    if (!options.forceInvalidProfile && !(await this.isStale(userId))) {
+    const stale = preloaded ? preloaded.stale : await this.isProfileStale(userId, profile)
+    if (!options.forceInvalidProfile && !stale) {
       return { status: 'not_stale' }
     }
 
