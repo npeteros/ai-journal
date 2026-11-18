@@ -1,50 +1,29 @@
+import { dehydrate, HydrationBoundary } from '@tanstack/react-query'
 import type { Metadata } from 'next'
 
 import { Page } from '@/components/app-shell/page'
 import { InsightsHeader } from '@/components/insights/insights-header'
-import { Rise } from '@/components/motion'
-import { AiLabel } from '@/components/ui/ai'
-import { Card, CardHeading } from '@/components/ui/card'
-import { BarList } from '@/components/insights/bar-list'
-import { personality } from '@/src/lib/placeholder/insights'
+import { PersonalityInsights } from '@/components/insights/personality-insights'
+import { getServerSession } from '@/src/server/auth/session'
+import { getQueryClient, trpc } from '@/src/server/trpc/server'
 
 export const metadata: Metadata = { title: 'Personality' }
+// Server-prefetch can claim deferred work directly, so it needs the same background budget as tRPC.
+export const maxDuration = 300
 
-export default function PersonalityPage() {
+export default async function PersonalityPage() {
+  const queryClient = getQueryClient()
+  const session = await getServerSession()
+  const options = trpc.v1.insights.personality.queryOptions()
+  const queryKey = [...options.queryKey, session!.user.id] as unknown as typeof options.queryKey
+  await queryClient.prefetchQuery({ ...options, queryKey })
+
   return (
     <Page>
       <InsightsHeader />
-      <p className="text-[13px] text-neutral-400">
-        Based on {personality.basedOn} entries · Last updated {personality.updated}
-      </p>
-
-      <div className="grid gap-5 lg:grid-cols-[1.4fr_1fr]">
-        <Rise>
-          <Card className="flex flex-col gap-5 lg:p-6">
-            <CardHeading>The Big Five</CardHeading>
-            <BarList
-              tone="cloud"
-              data={personality.traits.map((t) => ({
-                label: t.trait,
-                value: t.pct,
-                meta: t.level,
-              }))}
-              seriesLabel="Trait score"
-              unit=""
-              label={`The Big Five: ${personality.traits.map((t) => `${t.trait} ${t.level}`).join(', ')}.`}
-            />
-          </Card>
-        </Rise>
-        <Rise i={1}>
-          <Card className="flex flex-col gap-3 lg:p-6">
-            <AiLabel />
-            <CardHeading>What this means</CardHeading>
-            <p className="font-serif text-[18px] leading-relaxed text-neutral-900 italic">
-              {personality.meaning}
-            </p>
-          </Card>
-        </Rise>
-      </div>
+      <HydrationBoundary state={dehydrate(queryClient)}>
+        <PersonalityInsights userId={session!.user.id} />
+      </HydrationBoundary>
     </Page>
   )
 }

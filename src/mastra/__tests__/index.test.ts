@@ -23,6 +23,7 @@ vi.mock('../agents/entry-analysis-agent', () => ({
   entryAnalysisAgent: { id: 'entry-analysis-agent' },
 }))
 vi.mock('../agents/insights-agent', () => ({ insightsAgent: { id: 'insights-agent' } }))
+vi.mock('../agents/personality-agent', () => ({ personalityAgent: { id: 'personality-agent' } }))
 vi.mock('../agents/journal-companion-agent', () => ({
   journalCompanionAgent: { id: 'journal-companion-agent' },
 }))
@@ -42,6 +43,8 @@ vi.mock('../scorers', () => ({
   entryTitleFormatScorer: {},
   entryTitleInjectionScorer: {},
   entryTitleQualityScorer: {},
+  personalityResponseSafetyGate: {},
+  personalityWordingSafetyScorer: {},
 }))
 vi.mock('../observability', () => ({ logger: { warn: vi.fn() }, observability: {} }))
 vi.mock('../tools/get-entry-tool', () => ({ getEntryTool: { id: 'get-entry' } }))
@@ -51,6 +54,9 @@ vi.mock('../workflows/entry-analysis-workflow', () => ({
 }))
 vi.mock('../workflows/insights-workflow', () => ({
   insightsWorkflow: { id: 'insights-workflow' },
+}))
+vi.mock('../workflows/personality-workflow', () => ({
+  personalityWorkflow: { id: 'personality-workflow' },
 }))
 
 await import('../index')
@@ -63,6 +69,7 @@ describe('Mastra registration', () => {
         entryTitleAgent: { id: 'entry-title-agent' },
         entryAnalysisAgent: { id: 'entry-analysis-agent' },
         insightsAgent: { id: 'insights-agent' },
+        personalityAgent: { id: 'personality-agent' },
         voiceCompanionAgent: { id: 'voice-companion-agent' },
         voiceDraftAgent: { id: 'voice-draft-agent' },
       },
@@ -80,11 +87,14 @@ describe('Mastra registration', () => {
         entryTitleFormatScorer: {},
         entryTitleInjectionScorer: {},
         entryTitleQualityScorer: {},
+        personalityResponseSafetyGate: {},
+        personalityWordingSafetyScorer: {},
       },
     })
     expect(mocks.config).toHaveProperty('workflows', {
       entryAnalysisWorkflow: { id: 'entry-analysis-workflow' },
       insightsWorkflow: { id: 'insights-workflow' },
+      personalityWorkflow: { id: 'personality-workflow' },
     })
   })
 
@@ -101,13 +111,19 @@ describe('Mastra registration', () => {
     vi.doMock('@mastra/libsql', () => {
       throw new Error('Unable to open connection to local database ./mastra.db')
     })
+    // Scorers (and @mastra/evals) are for evals and Studio only and must not load in production.
+    vi.doMock('../scorers', () => {
+      throw new Error('scorers loaded in production')
+    })
     try {
       await expect(import('../index')).resolves.toHaveProperty('mastra')
       expect(mocks.config).not.toHaveProperty('storage')
       expect(mocks.config).not.toHaveProperty('observability')
+      expect(mocks.config).not.toHaveProperty('scorers')
     } finally {
       vi.doUnmock('@mastra/duckdb')
       vi.doUnmock('@mastra/libsql')
+      vi.doUnmock('../scorers')
       vi.unstubAllEnvs()
     }
   })

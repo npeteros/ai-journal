@@ -36,8 +36,9 @@ export function LoginForm({ redirectTo }: { redirectTo: string }) {
       })
     }
 
+    // Signed-in pages are dynamic, so the router cache never holds a signed-out copy of them:
+    // a plain push renders the destination once (no `router.refresh()` needed).
     router.push(redirectTo)
-    router.refresh()
   }
 
   return (

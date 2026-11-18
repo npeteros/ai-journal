@@ -4,27 +4,16 @@ import type { MastraCompositeStore, StorageDomains } from '@mastra/core/storage'
 import { entryAnalysisAgent } from './agents/entry-analysis-agent'
 import { entryTitleAgent } from './agents/entry-title-agent'
 import { insightsAgent } from './agents/insights-agent'
+import { personalityAgent } from './agents/personality-agent'
 import { journalCompanionAgent } from './agents/journal-companion-agent'
 import { voiceCompanionAgent } from './agents/voice-companion-agent'
 import { voiceDraftAgent } from './agents/voice-draft-agent'
-import {
-  answerRelevancyScorer,
-  entryTitleFormatScorer,
-  entryTitleInjectionScorer,
-  entryTitleQualityScorer,
-  journalCitationScorer,
-  journalClinicalBoundaryScorer,
-  journalGroundednessScorer,
-  journalResponsePresenceScorer,
-  journalToneScorer,
-  journalUnknownScorer,
-  toxicityScorer,
-} from './scorers'
 import { logger, observability } from './observability'
 import { getEntryTool } from './tools/get-entry-tool'
 import { searchEntriesTool } from './tools/search-entries-tool'
 import { entryAnalysisWorkflow } from './workflows/entry-analysis-workflow'
 import { insightsWorkflow } from './workflows/insights-workflow'
+import { personalityWorkflow } from './workflows/personality-workflow'
 
 const globalForMastraStorage = globalThis as unknown as {
   mastraDevStorage?: Promise<MastraCompositeStore>
@@ -73,30 +62,42 @@ async function openDevStorage(): Promise<MastraCompositeStore> {
 if (isDev) globalForMastraStorage.mastraDevStorage ??= openDevStorage()
 const storage = isDev ? await globalForMastraStorage.mastraDevStorage : undefined
 
+// Scorers serve evals and Studio only; no agent scores at runtime. Loading them lazily outside
+// production keeps them (and @mastra/evals, a devDependency) off production cold starts.
+async function loadDevScorers() {
+  const s = await import('./scorers')
+  return {
+    answerRelevancyScorer: s.answerRelevancyScorer,
+    toxicityScorer: s.toxicityScorer,
+    journalGroundednessScorer: s.journalGroundednessScorer,
+    journalResponsePresenceScorer: s.journalResponsePresenceScorer,
+    journalCitationScorer: s.journalCitationScorer,
+    journalClinicalBoundaryScorer: s.journalClinicalBoundaryScorer,
+    journalUnknownScorer: s.journalUnknownScorer,
+    journalToneScorer: s.journalToneScorer,
+    entryTitleFormatScorer: s.entryTitleFormatScorer,
+    entryTitleInjectionScorer: s.entryTitleInjectionScorer,
+    entryTitleQualityScorer: s.entryTitleQualityScorer,
+    personalityResponseSafetyGate: s.personalityResponseSafetyGate,
+    personalityWordingSafetyScorer: s.personalityWordingSafetyScorer,
+  }
+}
+
+const scorers = isDev ? await loadDevScorers() : undefined
+
 export const mastra = new Mastra({
   agents: {
     journalCompanionAgent,
     entryTitleAgent,
     entryAnalysisAgent,
     insightsAgent,
+    personalityAgent,
     voiceCompanionAgent,
     voiceDraftAgent,
   },
   tools: { searchEntriesTool, getEntryTool },
-  workflows: { entryAnalysisWorkflow, insightsWorkflow },
-  scorers: {
-    answerRelevancyScorer,
-    toxicityScorer,
-    journalGroundednessScorer,
-    journalResponsePresenceScorer,
-    journalCitationScorer,
-    journalClinicalBoundaryScorer,
-    journalUnknownScorer,
-    journalToneScorer,
-    entryTitleFormatScorer,
-    entryTitleInjectionScorer,
-    entryTitleQualityScorer,
-  },
+  workflows: { entryAnalysisWorkflow, insightsWorkflow, personalityWorkflow },
+  ...(scorers && { scorers }),
   ...(storage && { storage }),
   logger,
   ...(isDev && { observability }),

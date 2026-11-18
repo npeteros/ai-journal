@@ -1,5 +1,6 @@
 // @vitest-environment node
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { auth } from '@/src/server/auth/auth'
 import { createCallerFactory, type TRPCContext } from '@/src/server/trpc/init'
 import { insightsRouter } from '../index'
 
@@ -12,8 +13,6 @@ const mocks = vi.hoisted(() => ({
   getWorkflowById: vi.fn(),
   startWorkflow: vi.fn(),
   warn: vi.fn(),
-  isStale: vi.fn(),
-  remainingEntries: vi.fn(),
   tryStart: vi.fn(),
   prisma: { insightReport: { findUnique: vi.fn() } },
 }))
@@ -30,21 +29,23 @@ vi.mock('@/src/mastra/workflows/insights-workflow', () => ({
   INSIGHTS_WORKFLOW_ID: 'insights-workflow',
 }))
 vi.mock('../services/InsightReportService', () => ({
-  insightReportService: {
-    isStale: mocks.isStale,
-    remainingEntries: mocks.remainingEntries,
-    tryStart: mocks.tryStart,
-  },
+  insightReportService: { tryStart: mocks.tryStart },
 }))
 
 const createCaller = createCallerFactory(insightsRouter)
 
 function callerFor(userId = 'user-1') {
-  return createCaller({
+  const ctx = {
     headers: new Headers(),
     session: { id: 'session-1', userId },
     user: { id: userId, email: 'jaden@example.com', name: 'Jaden' },
-  } as unknown as TRPCContext)
+  } as unknown as TRPCContext
+  // Mutations look the session up again without the cookie cache; keep it signed in.
+  vi.mocked(auth.api.getSession).mockResolvedValue({
+    session: ctx.session,
+    user: ctx.user,
+  } as never)
+  return createCaller(ctx)
 }
 
 function savedReport(overrides: Record<string, unknown> = {}) {
@@ -69,8 +70,6 @@ describe('insights report API', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mocks.prisma.insightReport.findUnique.mockResolvedValue(savedReport())
-    mocks.isStale.mockResolvedValue(false)
-    mocks.remainingEntries.mockResolvedValue(0)
     mocks.tryStart.mockResolvedValue({ status: 'not_stale' })
     mocks.startWorkflow.mockResolvedValue({ status: 'success' })
     mocks.createRun.mockResolvedValue({ start: mocks.startWorkflow })
@@ -85,13 +84,13 @@ describe('insights report API', () => {
       remainingEntries: 0,
       report: { recurringThemes: [expect.objectContaining({ title: 'Work boundaries' })] },
     })
-    expect(mocks.tryStart).not.toHaveBeenCalled()
+    expect(mocks.tryStart).toHaveBeenCalledOnce()
+    expect(mocks.tryStart).toHaveBeenCalledWith('user-1')
     expect(mocks.after).not.toHaveBeenCalled()
   })
 
   it('claims stale work once and responds with the previous report while it updates', async () => {
     const claimedAt = NOW
-    mocks.isStale.mockResolvedValue(true)
     mocks.tryStart.mockResolvedValue({ status: 'claimed', claimedAt })
     let task: (() => Promise<void>) | undefined
     mocks.after.mockImplementation((scheduled) => {
@@ -113,7 +112,6 @@ describe('insights report API', () => {
   })
 
   it('does not schedule duplicate work when a concurrent request loses the claim', async () => {
-    mocks.isStale.mockResolvedValue(true)
     mocks.tryStart
       .mockResolvedValueOnce({ status: 'claimed', claimedAt: NOW })
       .mockResolvedValueOnce({ status: 'refresh_in_progress' })
@@ -128,7 +126,7 @@ describe('insights report API', () => {
 
   it('returns the remaining entry count without scheduling work before the first report', async () => {
     mocks.prisma.insightReport.findUnique.mockResolvedValue(null)
-    mocks.remainingEntries.mockResolvedValue(2)
+    mocks.tryStart.mockResolvedValue({ status: 'not_enough_entries', missingEntries: 2 })
 
     await expect(callerFor().report()).resolves.toMatchObject({
       status: 'notEnoughEntries',
@@ -174,7 +172,6 @@ describe('insights report API', () => {
   })
 
   it('never rejects the response when background generation fails', async () => {
-    mocks.isStale.mockResolvedValue(true)
     mocks.tryStart.mockResolvedValue({ status: 'claimed', claimedAt: NOW })
     mocks.startWorkflow.mockRejectedValue(new Error('provider unavailable'))
     let task: (() => Promise<void>) | undefined

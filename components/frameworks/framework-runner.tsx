@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { ArrowLeft, ArrowRight } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Copy, Pencil } from 'lucide-react'
 
 import { useMutation } from '@tanstack/react-query'
 import { getApiErrorMessage } from '@/components/journal/api-error'
@@ -48,9 +48,29 @@ export function FrameworkRunner({ framework }: { framework: FrameworkDto }) {
   return (
     <section className="mx-auto flex w-full max-w-[720px] flex-1 flex-col gap-5 py-4">
       <header>
-        <p className="text-[12px] font-semibold tracking-wide text-neutral-400 uppercase">
-          {framework.title} · Step {step + 1} of {total}
-        </p>
+        <div className="flex items-center justify-between gap-3">
+          <p className="text-[12px] font-semibold tracking-wide text-neutral-400 uppercase">
+            {framework.title} · Step {step + 1} of {total}
+          </p>
+          <div className="flex items-center gap-4">
+            {framework.isOwn && (
+              <Link
+                href={`/frameworks/${framework.slug}/edit`}
+                className="flex items-center gap-1.5 text-[13px] font-semibold text-neutral-400 hover:text-neutral-900"
+              >
+                <Pencil className="size-3.5" strokeWidth={2} />
+                Edit
+              </Link>
+            )}
+            <Link
+              href={`/frameworks/builder?from=${encodeURIComponent(framework.slug)}`}
+              className="flex items-center gap-1.5 text-[13px] font-semibold text-neutral-400 hover:text-neutral-900"
+            >
+              <Copy className="size-3.5" strokeWidth={2} />
+              Use as template
+            </Link>
+          </div>
+        </div>
         <progress
           value={step + 1}
           max={total}

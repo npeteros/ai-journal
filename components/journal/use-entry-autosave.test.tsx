@@ -30,8 +30,12 @@ vi.mock('@/src/server/trpc/client', () => ({
   }),
 }))
 
-const { useEntryAutosave, ANALYSIS_POLL_INTERVAL_MS, ANALYSIS_POLL_WINDOW_MS } =
-  await import('./use-entry-autosave')
+const {
+  useEntryAutosave,
+  ANALYSIS_FIRST_CHECK_DELAY_MS,
+  ANALYSIS_POLL_INTERVAL_MS,
+  ANALYSIS_POLL_WINDOW_MS,
+} = await import('./use-entry-autosave')
 
 const NOW = new Date('2026-11-16T07:00:00.000Z').getTime()
 const entry = {
@@ -75,7 +79,12 @@ describe('useEntryAutosave: analysis pending when the editor opens', () => {
     const { result } = renderAutosave(dto(savedAt, null))
     expect(result.current.analyzing).toBe(true)
 
-    await act(() => vi.advanceTimersByTimeAsync(ANALYSIS_POLL_INTERVAL_MS))
+    // No checks while the server is still inside its debounce.
+    await act(() => vi.advanceTimersByTimeAsync(ANALYSIS_FIRST_CHECK_DELAY_MS - 3_000 - 1))
+    expect(mocks.findOne).not.toHaveBeenCalled()
+
+    await act(() => vi.advanceTimersByTimeAsync(1))
+    expect(mocks.findOne).toHaveBeenCalledTimes(1)
     expect(result.current.analyzing).toBe(true)
 
     await act(() => vi.advanceTimersByTimeAsync(ANALYSIS_POLL_INTERVAL_MS))

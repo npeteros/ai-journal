@@ -349,28 +349,40 @@ export class InsightReportService {
   ) {}
 
   async isStale(userId: string): Promise<boolean> {
+    return (await this.checkStaleness(userId)).stale
+  }
+
+  /**
+   * Reads the report once and counts entries only when needed. `missingEntries` is set when there
+   * is no generated report yet, so callers don't count again.
+   */
+  private async checkStaleness(
+    userId: string,
+  ): Promise<{ stale: boolean; hasReport: boolean; missingEntries: number }> {
     const now = this.now()
     const windows = insightReportWindows(now)
     const report = await this.repository.findReport(userId)
     if (!report?.generatedAt) {
-      return (
-        (await this.repository.countAnalyzedEntries(userId, windows)) >=
-        INSIGHT_REPORT_MIN_ANALYZED_ENTRIES
-      )
+      const analyzedCount = await this.repository.countAnalyzedEntries(userId, windows)
+      return {
+        stale: analyzedCount >= INSIGHT_REPORT_MIN_ANALYZED_ENTRIES,
+        hasReport: false,
+        missingEntries: Math.max(0, INSIGHT_REPORT_MIN_ANALYZED_ENTRIES - analyzedCount),
+      }
     }
-    if (report.generatedAt.getTime() > now.getTime() - INSIGHT_REPORT_MAX_AGE_MS) return false
-    return (
-      (await this.repository.countAnalyzedEntries(userId, windows, report.generatedAt)) >=
-      INSIGHT_REPORT_MIN_NEW_ENTRIES
-    )
-  }
-
-  async remainingEntries(userId: string): Promise<number> {
-    const analyzedCount = await this.repository.countAnalyzedEntries(
+    if (report.generatedAt.getTime() > now.getTime() - INSIGHT_REPORT_MAX_AGE_MS) {
+      return { stale: false, hasReport: true, missingEntries: 0 }
+    }
+    const newEntries = await this.repository.countAnalyzedEntries(
       userId,
-      insightReportWindows(this.now()),
+      windows,
+      report.generatedAt,
     )
-    return Math.max(0, INSIGHT_REPORT_MIN_ANALYZED_ENTRIES - analyzedCount)
+    return {
+      stale: newEntries >= INSIGHT_REPORT_MIN_NEW_ENTRIES,
+      hasReport: true,
+      missingEntries: 0,
+    }
   }
 
   async tryStart(
@@ -379,12 +391,13 @@ export class InsightReportService {
   ): Promise<InsightReportStartResult> {
     const now = this.now()
     const isManual = options.manual === true
-    if (!isManual && !(await this.isStale(userId))) {
-      const report = await this.repository.findReport(userId)
-      if (!report?.generatedAt) {
-        return { status: 'not_enough_entries', missingEntries: await this.remainingEntries(userId) }
+    if (!isManual) {
+      const { stale, hasReport, missingEntries } = await this.checkStaleness(userId)
+      if (!stale) {
+        return hasReport
+          ? { status: 'not_stale' }
+          : { status: 'not_enough_entries', missingEntries }
       }
-      return { status: 'not_stale' }
     }
 
     if (isManual) {
