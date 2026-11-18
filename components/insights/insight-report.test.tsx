@@ -7,6 +7,7 @@ import {
   InsightReportStatus,
   INSIGHT_REPORT_POLL_TIMEOUT_MS,
   nextInsightReportPollInterval,
+  RecurringThemes,
 } from './insight-report'
 
 const ENTRY_ID = '00000000-0000-4000-8000-000000000001'
@@ -14,6 +15,15 @@ const ENTRY_ID = '00000000-0000-4000-8000-000000000001'
 const mocks = vi.hoisted(() => ({
   refresh: vi.fn(),
   report: vi.fn(),
+}))
+
+vi.mock('@/components/chat/entry-preview-panel', () => ({
+  EntryPreviewPanel: ({ entry, label }: { entry: { title: string } | null; label?: string }) =>
+    entry ? (
+      <dialog open>
+        {label}: {entry.title}
+      </dialog>
+    ) : null,
 }))
 
 vi.mock('@/src/server/trpc/client', () => ({
@@ -43,6 +53,7 @@ function response(
         mentions: number
         trend: 'rising' | 'steady' | 'falling'
         entryIds: string[]
+        entries: { id: string; title: string; entryDate: string }[]
       }[]
       growthSuggestions: { title: string; body: string; short: string; entryIds: string[] }[]
       trendCaption: string | null
@@ -93,6 +104,50 @@ describe('Insight report UI', () => {
       remainingEntries: 0,
       nextManualRefreshAt: '2026-08-27T12:00:00.000Z',
     })
+  })
+
+  it("keeps each theme's entries collapsed and opens them in the shared entry dialog", async () => {
+    mocks.report.mockResolvedValue(
+      response({
+        report: {
+          recurringThemes: [
+            {
+              title: 'Work boundaries',
+              mentions: 1,
+              trend: 'rising',
+              entryIds: [ENTRY_ID],
+              entries: [
+                {
+                  id: ENTRY_ID,
+                  title: 'Late night at work',
+                  entryDate: '2026-08-10T00:00:00.000Z',
+                },
+              ],
+            },
+          ],
+          growthSuggestions: [],
+          trendCaption: null,
+        },
+      }),
+    )
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    render(
+      <QueryClientProvider client={queryClient}>
+        <InsightReportProvider>
+          <RecurringThemes />
+        </InsightReportProvider>
+      </QueryClientProvider>,
+    )
+
+    const theme = await screen.findByRole('button', { name: /Work boundaries/ })
+    expect(theme.textContent).toContain('rising')
+    expect(screen.queryByRole('button', { name: /Late night at work/ })).toBeNull()
+
+    fireEvent.click(theme)
+    fireEvent.click(screen.getByRole('button', { name: /Late night at work/ }))
+    expect(screen.getByRole('dialog').textContent).toBe(
+      'Cited for Work boundaries: Late night at work',
+    )
   })
 
   it('keeps the growth area sized while the first report loads', () => {

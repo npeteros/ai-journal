@@ -1,10 +1,11 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   PersonalityInsights,
   type PersonalityData,
   PERSONALITY_POLL_TIMEOUT_MS,
+  PREPARING_STEPS,
   nextPersonalityPollInterval,
 } from './personality-insights'
 
@@ -16,6 +17,15 @@ const SECOND_ENTRY_ID = '00000000-0000-4000-8000-000000000002'
 const QUERY_KEY = [['v1', 'insights', 'personality'], { type: 'query' }]
 
 const mocks = vi.hoisted(() => ({ personality: vi.fn() }))
+
+vi.mock('@/components/chat/entry-preview-panel', () => ({
+  EntryPreviewPanel: ({ entry, label }: { entry: { title: string } | null; label?: string }) =>
+    entry ? (
+      <dialog open>
+        {label}: {entry.title}
+      </dialog>
+    ) : null,
+}))
 
 vi.mock('@/src/server/trpc/client', () => ({
   useTRPC: () => ({
@@ -46,35 +56,53 @@ function response(overrides: Partial<PersonalityData> = {}): PersonalityData {
           label: 'Openness',
           score: 76,
           level: 'High',
-          evidence: [{ id: ENTRY_ID, entryDate: '2026-11-01T00:00:00.000Z' }],
+          evidence: [
+            { id: ENTRY_ID, title: 'Morning pages', entryDate: '2026-11-01T00:00:00.000Z' },
+          ],
         },
         {
           trait: 'conscientiousness',
           label: 'Conscientiousness',
           score: 58,
           level: 'Moderate',
-          evidence: [{ id: SECOND_ENTRY_ID, entryDate: '2026-11-05T00:00:00.000Z' }],
+          evidence: [
+            {
+              id: SECOND_ENTRY_ID,
+              title: 'Dinner with Sam',
+              entryDate: '2026-11-05T00:00:00.000Z',
+            },
+          ],
         },
         {
           trait: 'extraversion',
           label: 'Extraversion',
           score: 33,
           level: 'Low',
-          evidence: [{ id: ENTRY_ID, entryDate: '2026-11-01T00:00:00.000Z' }],
+          evidence: [
+            { id: ENTRY_ID, title: 'Morning pages', entryDate: '2026-11-01T00:00:00.000Z' },
+          ],
         },
         {
           trait: 'agreeableness',
           label: 'Agreeableness',
           score: 67,
           level: 'High',
-          evidence: [{ id: SECOND_ENTRY_ID, entryDate: '2026-11-05T00:00:00.000Z' }],
+          evidence: [
+            {
+              id: SECOND_ENTRY_ID,
+              title: 'Dinner with Sam',
+              entryDate: '2026-11-05T00:00:00.000Z',
+            },
+          ],
         },
         {
           trait: 'neuroticism',
           label: 'Emotional stability',
           score: 70,
           level: 'High',
-          evidence: [{ id: ENTRY_ID, entryDate: '2026-11-01T00:00:00.000Z' }],
+          evidence: [
+            { id: ENTRY_ID, title: 'Morning pages', entryDate: '2026-11-01T00:00:00.000Z' },
+          ],
         },
       ],
     },
@@ -109,14 +137,30 @@ describe('Personality insights UI', () => {
     expect(mocks.personality).not.toHaveBeenCalled()
   })
 
-  it('shows the evidence entries for each trait separately', () => {
+  it('keeps evidence collapsed per trait and opens the shared entry preview, not a new page', () => {
     renderInsights()
 
-    const extraversion = screen.getByRole('link', { name: /^Extraversion: journal entry/ })
-    expect(extraversion.getAttribute('href')).toBe(`/journal/${ENTRY_ID}`)
-    const agreeableness = screen.getByRole('link', { name: /^Agreeableness: journal entry/ })
-    expect(agreeableness.getAttribute('href')).toBe(`/journal/${SECOND_ENTRY_ID}`)
-    expect(screen.getAllByRole('link', { name: /journal entry/ })).toHaveLength(5)
+    expect(screen.queryByRole('button', { name: /Morning pages/ })).toBeNull()
+    const openness = screen.getByRole('button', { name: /^Openness/ })
+    expect(openness.textContent).toContain('1 entry')
+
+    fireEvent.click(openness)
+    const chip = screen.getByRole('button', { name: /Morning pages/ })
+    expect(screen.queryByRole('link', { name: /Morning pages/ })).toBeNull()
+
+    fireEvent.click(chip)
+    expect(screen.getByRole('dialog').textContent).toBe('Cited for Openness: Morning pages')
+  })
+
+  it('explains each Big Five trait in a popover, without adding to the page by default', () => {
+    renderInsights()
+
+    expect(screen.queryByText(/Where you get your energy/)).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: /What are these/ }))
+
+    expect(screen.getByText(/Where you get your energy/)).toBeTruthy()
+    expect(screen.getByText('recharged by quiet and time alone')).toBeTruthy()
+    expect(screen.getByText('recharged by people and activity')).toBeTruthy()
   })
 
   it('shows a loading state, not an unavailable message, while the streamed query is pending', () => {
@@ -140,6 +184,15 @@ describe('Personality insights UI', () => {
 
     expect(screen.getByText('The Big Five')).toBeTruthy()
     expect(await screen.findByText('Updating reflection...')).toBeTruthy()
+  })
+
+  it('shows a live preparing state while the first reflection generates', () => {
+    renderInsights(response({ status: 'updating', profile: null, unavailable: true }))
+
+    expect(screen.getByText('Preparing your reflection')).toBeTruthy()
+    expect(screen.getByText(PREPARING_STEPS[0])).toBeTruthy()
+    expect(screen.getByText(/Your reflection is being prepared/)).toBeTruthy()
+    expect(screen.queryByText(/Check back shortly/)).toBeNull()
   })
 
   it('uses a friendly unavailable state during a retry cooldown', () => {

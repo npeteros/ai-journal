@@ -11,7 +11,13 @@ import {
 } from '@/components/ui/chart'
 import { cssVar } from '@/src/lib/design-tokens/colors'
 
-type Row = { label: string; value: number; meta?: string }
+type Row = {
+  label: string
+  value: number
+  meta?: string
+  /** One-line explanation shown under the value in the hover tooltip. */
+  hint?: string
+}
 
 type BarListProps = {
   data: Row[]
@@ -47,12 +53,15 @@ export function BarList({ data, tone = 'sage', seriesLabel, unit = '%', label }:
   const height = data.length * ROW_HEIGHT
 
   const num = (v: number | string | undefined) => (typeof v === 'number' ? v : Number(v ?? 0))
+  // The end label travels with its row. Looking it up by `index` mislabels rows, because Recharts
+  // renumbers labels when it drops a bar.
+  const rows = data.map((row) => ({ ...row, end: row.meta ?? `${row.value}${unit}` }))
 
   return (
     <figure>
       <ChartContainer config={config} className="aspect-auto w-full" style={{ height }} aria-hidden>
         <BarChart
-          data={data}
+          data={rows}
           layout="vertical"
           margin={{ top: 18, right: 0, bottom: 0, left: 0 }}
           barCategoryGap={ROW_HEIGHT - BAR}
@@ -66,21 +75,31 @@ export function BarList({ data, tone = 'sage', seriesLabel, unit = '%', label }:
               <ChartTooltipContent
                 hideLabel
                 className="lv-card rounded-xl border-0 px-3 py-2"
-                formatter={(value, _name, item) => (
-                  <span className="flex w-full items-center justify-between gap-4">
-                    <span className="flex items-center gap-1.5 text-neutral-600">
-                      <span
-                        className="size-2 rounded-full"
-                        style={{ background: 'var(--color-value)' }}
-                      />
-                      {(item.payload as Row).label}
+                formatter={(value, _name, item) => {
+                  const row = item.payload as Row
+                  return (
+                    <span className="flex w-full flex-col gap-1">
+                      <span className="flex w-full items-center justify-between gap-4">
+                        <span className="flex items-center gap-1.5 text-neutral-600">
+                          <span
+                            className="size-2 rounded-full"
+                            style={{ background: 'var(--color-value)' }}
+                          />
+                          {row.label}
+                        </span>
+                        <span className="font-semibold text-neutral-900 tabular-nums">
+                          {String(value)}
+                          {unit}
+                        </span>
+                      </span>
+                      {row.hint && (
+                        <span className="max-w-[240px] text-[12px] leading-snug text-neutral-500">
+                          {row.hint}
+                        </span>
+                      )}
                     </span>
-                    <span className="font-semibold text-neutral-900 tabular-nums">
-                      {String(value)}
-                      {unit}
-                    </span>
-                  </span>
-                )}
+                  )
+                }}
               />
             }
           />
@@ -89,6 +108,8 @@ export function BarList({ data, tone = 'sage', seriesLabel, unit = '%', label }:
             fill="var(--color-value)"
             radius={4}
             barSize={BAR}
+            // Recharts drops zero-width bars along with their labels, so a 0 would lose its row.
+            minPointSize={2}
             background={{ fill: 'var(--neutral-100)', radius: 4 }}
             isAnimationActive={!reduceMotion}
             animationDuration={1200}
@@ -107,20 +128,17 @@ export function BarList({ data, tone = 'sage', seriesLabel, unit = '%', label }:
               )}
             />
             <LabelList
-              dataKey="value"
-              content={({ y, index }: LabelProps) => {
-                const row = data[index ?? 0]
-                return (
-                  <text
-                    x="100%"
-                    y={num(y) - 9}
-                    textAnchor="end"
-                    className="fill-neutral-400 text-[13px]"
-                  >
-                    {row?.meta ?? `${row?.value ?? ''}${unit}`}
-                  </text>
-                )
-              }}
+              dataKey="end"
+              content={({ y, value }: LabelProps) => (
+                <text
+                  x="100%"
+                  y={num(y) - 9}
+                  textAnchor="end"
+                  className="fill-neutral-400 text-[13px]"
+                >
+                  {String(value)}
+                </text>
+              )}
             />
           </Bar>
         </BarChart>

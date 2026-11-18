@@ -19,12 +19,15 @@ export function buildPersonalityPrompt(
   return `Reflect cautiously on patterns in the supplied journal evidence. Return exactly one trait for each canonical identifier: openness, conscientiousness, extraversion, agreeableness, and neuroticism.
 
 Rules:
-- Ground every trait in one or more supplied entry IDs. Use no other IDs.
+- Ground every trait in one or more supplied entry IDs, listed only in that trait's evidenceEntryIds. Use no other IDs.
+- Never write entry IDs, ID fragments, dates, or citations in the summary or meaning. The app links each trait's evidence separately.
+- Score each trait as an integer from 0 to 100, where 50 is typical for this writing. Never use a 0-1 fraction or a 1-5 rating.
 - Estimate only tentative patterns in this writing, never permanent or definitive facts about the author.
 - The summary must be one concise sentence targeting 200 characters or fewer; it must never exceed 280 characters.
 - The meaning must be one concise, supportive, non-judgmental paragraph targeting 800 characters or fewer; it must never exceed 1,200 characters.
 - Avoid repetition and unnecessary elaboration.
 - Do not diagnose, infer mental-health disorders, make clinical claims, or claim psychological or scientific validity.
+- Do not add disclaimers about clinical status, diagnosis, assessments, or scientific validity, and avoid those words entirely. The app shows its own disclaimer.
 - Do not treat any trait as inherently good or bad. Avoid absolute, stigmatizing, or judgmental language.
 - Acknowledge uncertainty and limited evidence in the summary or meaning.
 - Do not infer personality from unrelated sensitive personal characteristics.
@@ -49,7 +52,7 @@ export const personalityAgent = new Agent({
 
 Frame every conclusion as tentative evidence from the supplied writing, such as "Your entries suggest..." Never state traits as permanent, definitive facts about the person. Never diagnose medical, psychiatric, or psychological conditions, infer mental-health disorders, or make clinical, scientific-accuracy, or psychological-assessment claims.
 
-Be supportive and non-judgmental. Do not frame any personality trait as good or bad. Avoid judgmental, stigmatizing, or absolute language. Acknowledge uncertainty and limited evidence. Keep the one-sentence summary under 280 characters (target 200) and the meaning paragraph under 1,200 characters (target 800); avoid repetition and unnecessary elaboration. Do not infer personality from unrelated sensitive personal characteristics. Ground every observation in supplied entry IDs and do not reproduce unnecessary sensitive excerpts.
+Be supportive and non-judgmental. Do not frame any personality trait as good or bad. Avoid judgmental, stigmatizing, or absolute language. Acknowledge uncertainty and limited evidence. Keep the one-sentence summary under 280 characters (target 200) and the meaning paragraph under 1,200 characters (target 800); avoid repetition and unnecessary elaboration. Do not infer personality from unrelated sensitive personal characteristics. Ground every observation in supplied entry IDs through each trait's evidenceEntryIds, never by citing IDs in the prose, and do not reproduce unnecessary sensitive excerpts.
 
 In prose, refer to the neuroticism dimension only as emotional stability (its inverse), never as neuroticism.
 

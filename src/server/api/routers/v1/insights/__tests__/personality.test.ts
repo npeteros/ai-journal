@@ -68,8 +68,8 @@ describe('personality insights API', () => {
     vi.clearAllMocks()
     mocks.findProfile.mockResolvedValue(storedProfile())
     mocks.findEntries.mockResolvedValue([
-      { id: ENTRY_ID, entryDate: ENTRY_DATE },
-      { id: SECOND_ENTRY_ID, entryDate: ENTRY_DATE },
+      { id: ENTRY_ID, title: 'First', entryDate: ENTRY_DATE },
+      { id: SECOND_ENTRY_ID, title: 'Second', entryDate: ENTRY_DATE },
     ])
     mocks.remainingEntries.mockResolvedValue(0)
     mocks.isProfileStale.mockResolvedValue(false)
@@ -87,8 +87,8 @@ describe('personality insights API', () => {
     )
     expect(result).toMatchObject({ status: 'ready', profile: { traits: expect.any(Array) } })
     expect(result.profile?.traits[0]?.evidence).toEqual([
-      { id: ENTRY_ID, entryDate: ENTRY_DATE },
-      { id: SECOND_ENTRY_ID, entryDate: ENTRY_DATE },
+      { id: ENTRY_ID, title: 'First', entryDate: ENTRY_DATE },
+      { id: SECOND_ENTRY_ID, title: 'Second', entryDate: ENTRY_DATE },
     ])
     expect(mocks.tryStart).not.toHaveBeenCalled()
     expect(mocks.schedule).not.toHaveBeenCalled()
@@ -132,13 +132,15 @@ describe('personality insights API', () => {
   })
 
   it('keeps a profile visible without links to deleted entries and rebuilds it', async () => {
-    mocks.findEntries.mockResolvedValue([{ id: ENTRY_ID, entryDate: ENTRY_DATE }])
+    mocks.findEntries.mockResolvedValue([{ id: ENTRY_ID, title: 'First', entryDate: ENTRY_DATE }])
     mocks.tryStart.mockResolvedValue({ status: 'claimed', claimedAt: NOW })
 
     const result = await callerFor().personality()
 
     expect(result.status).toBe('updating')
-    expect(result.profile?.traits[0]?.evidence).toEqual([{ id: ENTRY_ID, entryDate: ENTRY_DATE }])
+    expect(result.profile?.traits[0]?.evidence).toEqual([
+      { id: ENTRY_ID, title: 'First', entryDate: ENTRY_DATE },
+    ])
     expect(mocks.tryStart).toHaveBeenCalledWith(
       'user-1',
       expect.objectContaining({ forceInvalidProfile: true }),
@@ -161,6 +163,36 @@ describe('personality insights API', () => {
       'user-1',
       expect.objectContaining({ forceInvalidProfile: true }),
     )
+  })
+
+  it('rebuilds a stored profile that fails validation instead of hiding it indefinitely', async () => {
+    mocks.findProfile.mockResolvedValue(
+      storedProfile({
+        traits: [
+          'openness',
+          'conscientiousness',
+          'extraversion',
+          'agreeableness',
+          'neuroticism',
+        ].map((trait, index) => ({
+          trait,
+          score: index === 2 ? 0 : 1,
+          level: 'Low',
+          evidenceEntryIds: [ENTRY_ID],
+        })),
+      }),
+    )
+    mocks.tryStart.mockResolvedValue({ status: 'claimed', claimedAt: NOW })
+
+    await expect(callerFor().personality()).resolves.toMatchObject({
+      status: 'updating',
+      profile: null,
+    })
+    expect(mocks.tryStart).toHaveBeenCalledWith(
+      'user-1',
+      expect.objectContaining({ forceInvalidProfile: true }),
+    )
+    expect(mocks.schedule).toHaveBeenCalledWith('user-1', NOW)
   })
 
   it('does not expose a profile or schedule AI below the analyzed-entry minimum', async () => {

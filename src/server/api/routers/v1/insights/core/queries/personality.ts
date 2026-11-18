@@ -9,7 +9,7 @@ import {
 import { personalityProfileService } from '../../services/PersonalityProfileService'
 import { schedulePersonalityProfileGeneration } from '../../services/schedulePersonalityProfileGeneration'
 
-export type PersonalityEvidenceEntry = { id: string; entryDate: Date }
+export type PersonalityEvidenceEntry = { id: string; title: string; entryDate: Date }
 
 export type StoredPersonalityProfile = Omit<PersonalityProfileData, 'traits'> & {
   traits: (ReturnType<typeof toPersonalityTraitDisplay> & {
@@ -42,44 +42,44 @@ function evidenceIds(profile: PersonalityProfileData): string[] {
 }
 
 /**
- * Validates the stored profile and keeps only evidence the user still owns. `hasRemovedEvidence`
- * flags a profile built partly from entries since deleted, so it can be regenerated without them.
+ * Validates the stored profile and keeps only evidence the user still owns. `needsRebuild` flags a
+ * stored profile that is invalid, or was built partly from entries since deleted, so it is
+ * regenerated without waiting for the normal staleness rule.
  */
 async function safeStoredProfile(
   userId: string,
   stored: StoredRow | null,
-): Promise<{ profile: StoredPersonalityProfile | null; hasRemovedEvidence: boolean }> {
-  if (!stored?.generatedAt || !stored.summary || !stored.meaning) {
-    return { profile: null, hasRemovedEvidence: false }
-  }
+): Promise<{ profile: StoredPersonalityProfile | null; needsRebuild: boolean }> {
+  if (!stored?.generatedAt) return { profile: null, needsRebuild: false }
+  if (!stored.summary || !stored.meaning) return { profile: null, needsRebuild: true }
   const parsed = PersonalityProfileDataSchema.safeParse({
     traits: stored.traits,
     summary: stored.summary,
     meaning: stored.meaning,
   })
-  if (!parsed.success) return { profile: null, hasRemovedEvidence: true }
+  if (!parsed.success) return { profile: null, needsRebuild: true }
 
   const ids = evidenceIds(parsed.data)
   const entries = await prisma.entry.findMany({
     where: { id: { in: ids }, userId, deletedAt: null, analysis: { isNot: null } },
-    select: { id: true, entryDate: true },
+    select: { id: true, title: true, entryDate: true },
   })
-  const entryDates = new Map(entries.map(({ id, entryDate }) => [id, entryDate]))
-  const hasRemovedEvidence = ids.some((entryId) => !entryDates.has(entryId))
+  const entriesById = new Map(entries.map((entry) => [entry.id, entry]))
+  const hasRemovedEvidence = ids.some((entryId) => !entriesById.has(entryId))
 
   // Drops deleted or unowned links; a trait left with no evidence makes the profile unusable.
-  const profile = filterOwnedPersonalityProfile(parsed.data, new Set(entryDates.keys()))
-  if (!profile) return { profile: null, hasRemovedEvidence }
+  const profile = filterOwnedPersonalityProfile(parsed.data, new Set(entriesById.keys()))
+  if (!profile) return { profile: null, needsRebuild: true }
 
   return {
-    hasRemovedEvidence,
+    needsRebuild: hasRemovedEvidence,
     profile: {
       ...profile,
       traits: profile.traits.map((trait) => ({
         ...toPersonalityTraitDisplay(trait),
         evidence: trait.evidenceEntryIds.flatMap((id) => {
-          const entryDate = entryDates.get(id)
-          return entryDate ? [{ id, entryDate }] : []
+          const entry = entriesById.get(id)
+          return entry ? [entry] : []
         }),
       })),
       basedOn: stored.basedOn,
@@ -117,16 +117,16 @@ export const personality = protectedProcedure.query(
       }
     }
 
-    const [{ profile, hasRemovedEvidence }, aged] = await Promise.all([
+    const [{ profile, needsRebuild }, aged] = await Promise.all([
       safeStoredProfile(userId, stored),
       personalityProfileService.isProfileStale(userId, stored),
     ])
-    // Removed evidence forces a rebuild so a deleted entry stops shaping the reflection. The retry
-    // cooldown still applies, so this cannot trigger more often than any other failed run.
-    const stale = hasRemovedEvidence || aged
+    // An invalid profile, or one shaped by a since-deleted entry, is rebuilt now. The retry cooldown
+    // still applies, so this cannot trigger more often than any other failed run.
+    const stale = needsRebuild || aged
     const start = stale
       ? await personalityProfileService.tryStart(userId, {
-          forceInvalidProfile: hasRemovedEvidence,
+          forceInvalidProfile: needsRebuild,
           preloaded: { profile: stored, stale },
         })
       : null

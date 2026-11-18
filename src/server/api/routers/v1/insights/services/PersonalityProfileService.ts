@@ -4,7 +4,7 @@ import prisma from '@/src/lib/prisma'
 import { logger } from '@/src/mastra/observability'
 import {
   PERSONALITY_PROFILE_LOCK_TIMEOUT_MS,
-  filterOwnedPersonalityProfile,
+  validatePersonalityProfile,
   type PersonalityProfileData,
 } from '../personality-schema'
 
@@ -82,6 +82,8 @@ export type PersonalityProfileRepository = {
     userId: string
     claimedAt: Date
     lockExpiresBefore: Date
+    /** The `generatedAt` the staleness decision was based on; a newer save voids the claim. */
+    expectedGeneratedAt: Date | null
   }): Promise<boolean>
   activateGeneration(userId: string, claimedAt: Date, executionAt: Date): Promise<boolean>
   loadSources(userId: string): Promise<PersonalitySourceCandidate[]>
@@ -133,18 +135,24 @@ function normalizedNarrative(value: string): string {
   return value.trim().replace(/\s+/g, ' ').toLowerCase()
 }
 
-/** Rejects prohibited claims and lengthy source excerpts before they can be stored or displayed. */
-function isSafePersonalityNarrative(
+/**
+ * Rejects prohibited claims and lengthy source excerpts before they can be stored or displayed.
+ * Returns why the narrative is unsafe, or null. The reason names only the matched term from the
+ * fixed list above, never journal text, so it is safe to log.
+ */
+function narrativeSafetyIssue(
   profile: PersonalityProfileData,
   textSamples: PersonalityTextSample[],
-): boolean {
+): string | null {
   const narrative = `${profile.summary} ${profile.meaning}`
-  if (UNSAFE_PERSONALITY_NARRATIVE.test(narrative)) return false
+  const blocked = UNSAFE_PERSONALITY_NARRATIVE.exec(narrative)
+  if (blocked) return `safety check: blocked term "${blocked[0].toLowerCase()}"`
   const normalized = normalizedNarrative(narrative)
-  return !textSamples.some((sample) => {
+  const copied = textSamples.some((sample) => {
     const source = normalizedNarrative(sample.text)
     return source.length >= 48 && normalized.includes(source)
   })
+  return copied ? 'safety check: copied a journal excerpt verbatim' : null
 }
 
 /**
@@ -208,10 +216,13 @@ export const prismaPersonalityProfileRepository: PersonalityProfileRepository = 
     await prisma.personalityProfile.upsert({ where: { userId }, create: { userId }, update: {} })
   },
 
-  async claimGeneration({ userId, claimedAt, lockExpiresBefore }) {
+  async claimGeneration({ userId, claimedAt, lockExpiresBefore, expectedGeneratedAt }) {
     const claimed = await prisma.personalityProfile.updateMany({
       where: {
         userId,
+        // Fences the claim to the profile that was judged stale. Without it, a request that read the
+        // row just before another run saved would start a duplicate run for a brand-new profile.
+        generatedAt: expectedGeneratedAt,
         AND: [
           { OR: [{ generatingAt: null }, { generatingAt: { lt: lockExpiresBefore } }] },
           { OR: [{ retryAfter: null }, { retryAfter: { lte: claimedAt } }] },
@@ -374,12 +385,20 @@ export class PersonalityProfileService {
       userId,
       claimedAt,
       lockExpiresBefore: new Date(claimedAt.getTime() - PERSONALITY_PROFILE_LOCK_TIMEOUT_MS),
+      expectedGeneratedAt: profile?.generatedAt ?? null,
     })
     if (claimed) return { status: 'claimed', claimedAt }
 
     const current = await this.repository.findProfile(userId)
     if (current?.retryAfter && current.retryAfter.getTime() > now.getTime()) {
       return { status: 'cooldown', retryAfter: current.retryAfter }
+    }
+    // Another run saved a profile after this request read the row, so nothing is due.
+    if (
+      current?.generatedAt?.getTime() !== profile?.generatedAt?.getTime() &&
+      !current?.generatingAt
+    ) {
+      return { status: 'not_stale' }
     }
     return { status: 'generation_in_progress' }
   }
@@ -447,12 +466,19 @@ export class PersonalityProfileService {
       )
       const eligibleSourceIdSet = new Set(eligibleSourceIds)
       if (sources.sourceEntryIds.some((entryId) => !eligibleSourceIdSet.has(entryId))) {
+        this.log.warn('Personality profile rejected', {
+          userId,
+          reason: 'a source entry was removed during generation',
+        })
         await this.repository.failGeneration(userId, executionAt, cooldownAfter(this.now()))
         return 'insufficient_evidence'
       }
 
-      const profile = filterOwnedPersonalityProfile(result.output, eligibleSourceIdSet)
-      if (!profile || !isSafePersonalityNarrative(profile, sources.textSamples)) {
+      const { profile, reason } = validatePersonalityProfile(result.output, eligibleSourceIdSet)
+      const rejection = reason ?? (profile && narrativeSafetyIssue(profile, sources.textSamples))
+      if (!profile || rejection) {
+        // The reason never contains model output; that text is journal-derived.
+        this.log.warn('Personality profile rejected', { userId, reason: rejection })
         await this.repository.failGeneration(userId, executionAt, cooldownAfter(this.now()))
         return 'insufficient_evidence'
       }
