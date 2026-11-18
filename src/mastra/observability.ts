@@ -22,22 +22,43 @@ export const logger = new PinoLogger({
   level: resolveLogLevel(process.env.LOG_LEVEL),
 })
 
+const SENSITIVE_AGENT_IDS = new Set(['personality-agent'])
+
+function isSensitiveAgentSpan(span: AnySpan): boolean {
+  let current: AnySpan | undefined = span
+  while (current) {
+    if (current.entityId && SENSITIVE_AGENT_IDS.has(current.entityId)) return true
+    current = current.parent
+  }
+  return false
+}
+
+function redactContent(span: AnySpan): AnySpan {
+  span.input = undefined
+  span.output = undefined
+  span.inputPreview = undefined
+  span.outputPreview = undefined
+  span.errorPreview = undefined
+  span.errorInfo = undefined
+  const { attributes } = span
+  if (attributes && 'prompt' in attributes) attributes.prompt = undefined
+  if (attributes && 'instructions' in attributes) attributes.instructions = undefined
+  return span
+}
+
 /**
  * Strips span input/output (prompts, completions, tool args/results) and the prompt and
- * instructions attributes (agent runs, scorer steps) before export, unless AI_LOG_CONTENT=true.
- * Model, token usage, timing and metadata are kept.
+ * instructions attributes and error details (agent runs, scorer steps) before export. Personality-agent traces are
+ * always redacted, including when AI_LOG_CONTENT=true, because they contain journal text.
  */
 export class ContentRedactionProcessor implements SpanOutputProcessor {
   name = 'content-redaction'
 
   process(span?: AnySpan): AnySpan | undefined {
-    if (!span || process.env.AI_LOG_CONTENT === 'true') return span
-    span.input = undefined
-    span.output = undefined
-    const { attributes } = span
-    if (attributes && 'prompt' in attributes) attributes.prompt = undefined
-    if (attributes && 'instructions' in attributes) attributes.instructions = undefined
-    return span
+    if (!span) return span
+    return isSensitiveAgentSpan(span) || process.env.AI_LOG_CONTENT !== 'true'
+      ? redactContent(span)
+      : span
   }
 
   async shutdown(): Promise<void> {}
@@ -53,7 +74,7 @@ export const observability = new Observability({
       ],
       spanOutputProcessors: [
         new SensitiveDataFilter(), // Redacts sensitive data like passwords, tokens, keys
-        new ContentRedactionProcessor(), // Hides prompts/completions unless AI_LOG_CONTENT=true
+        new ContentRedactionProcessor(), // Personality prompts/completions stay redacted always
       ],
       // Attach the caller's user ID (set by the AI guardrails) to every trace
       requestContextKeys: [USER_ID_KEY],

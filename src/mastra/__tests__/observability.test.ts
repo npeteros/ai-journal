@@ -15,6 +15,22 @@ function agentRunSpan() {
   } as unknown as AnySpan
 }
 
+function personalityChildSpan() {
+  return {
+    input: 'Sensitive journal entry',
+    output: 'Sensitive personality reflection',
+    inputPreview: 'Sensitive journal entry',
+    outputPreview: 'Sensitive personality reflection',
+    errorPreview: 'Sensitive model error',
+    errorInfo: { message: 'Sensitive journal entry', stack: 'Sensitive stack trace' },
+    attributes: {
+      prompt: 'Sensitive journal entry',
+      instructions: 'Sensitive personality instructions',
+    },
+    parent: { entityId: 'personality-agent' },
+  } as unknown as AnySpan
+}
+
 describe('ContentRedactionProcessor', () => {
   afterEach(() => {
     vi.unstubAllEnvs()
@@ -34,5 +50,19 @@ describe('ContentRedactionProcessor', () => {
     const span = new ContentRedactionProcessor().process(agentRunSpan())
 
     expect(span).toEqual(agentRunSpan())
+  })
+
+  it('always redacts personality-agent traces even when AI_LOG_CONTENT=true', () => {
+    vi.stubEnv('AI_LOG_CONTENT', 'true')
+
+    const span = new ContentRedactionProcessor().process(personalityChildSpan())
+
+    expect(span?.input).toBeUndefined()
+    expect(span?.output).toBeUndefined()
+    expect(span?.inputPreview).toBeUndefined()
+    expect(span?.outputPreview).toBeUndefined()
+    expect(span?.errorPreview).toBeUndefined()
+    expect(span?.errorInfo).toBeUndefined()
+    expect(span?.attributes).toEqual({ prompt: undefined, instructions: undefined })
   })
 })

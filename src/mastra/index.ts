@@ -4,6 +4,7 @@ import type { MastraCompositeStore, StorageDomains } from '@mastra/core/storage'
 import { entryAnalysisAgent } from './agents/entry-analysis-agent'
 import { entryTitleAgent } from './agents/entry-title-agent'
 import { insightsAgent } from './agents/insights-agent'
+import { personalityAgent } from './agents/personality-agent'
 import { journalCompanionAgent } from './agents/journal-companion-agent'
 import { voiceCompanionAgent } from './agents/voice-companion-agent'
 import { voiceDraftAgent } from './agents/voice-draft-agent'
@@ -18,6 +19,8 @@ import {
   journalResponsePresenceScorer,
   journalToneScorer,
   journalUnknownScorer,
+  personalityResponseSafetyGate,
+  personalityWordingSafetyScorer,
   toxicityScorer,
 } from './scorers'
 import { logger, observability } from './observability'
@@ -25,6 +28,7 @@ import { getEntryTool } from './tools/get-entry-tool'
 import { searchEntriesTool } from './tools/search-entries-tool'
 import { entryAnalysisWorkflow } from './workflows/entry-analysis-workflow'
 import { insightsWorkflow } from './workflows/insights-workflow'
+import { personalityWorkflow } from './workflows/personality-workflow'
 
 const globalForMastraStorage = globalThis as unknown as {
   mastraDevStorage?: Promise<MastraCompositeStore>
@@ -79,11 +83,12 @@ export const mastra = new Mastra({
     entryTitleAgent,
     entryAnalysisAgent,
     insightsAgent,
+    personalityAgent,
     voiceCompanionAgent,
     voiceDraftAgent,
   },
   tools: { searchEntriesTool, getEntryTool },
-  workflows: { entryAnalysisWorkflow, insightsWorkflow },
+  workflows: { entryAnalysisWorkflow, insightsWorkflow, personalityWorkflow },
   scorers: {
     answerRelevancyScorer,
     toxicityScorer,
@@ -96,6 +101,8 @@ export const mastra = new Mastra({
     entryTitleFormatScorer,
     entryTitleInjectionScorer,
     entryTitleQualityScorer,
+    personalityResponseSafetyGate,
+    personalityWordingSafetyScorer,
   },
   ...(storage && { storage }),
   logger,
