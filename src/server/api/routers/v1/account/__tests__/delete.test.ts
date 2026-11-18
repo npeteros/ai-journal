@@ -1,5 +1,6 @@
 // @vitest-environment node
 import { TRPCError } from '@trpc/server'
+import { APIError } from 'better-auth/api'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { auth } from '@/src/server/auth/auth'
 import { createCallerFactory, type TRPCContext } from '@/src/server/trpc/init'
@@ -8,18 +9,16 @@ import { accountRouter } from '../index'
 const mocks = vi.hoisted(() => ({
   prisma: {
     $transaction: vi.fn(),
-    account: { findFirst: vi.fn() },
     user: { update: vi.fn() },
     session: { deleteMany: vi.fn() },
   },
-  verify: vi.fn(),
+  verifyPassword: vi.fn(),
 }))
 
 vi.mock('@/src/lib/prisma', () => ({ default: mocks.prisma }))
 vi.mock('@/src/server/auth/auth', () => ({
   auth: {
-    api: { getSession: vi.fn() },
-    $context: Promise.resolve({ password: { verify: mocks.verify } }),
+    api: { getSession: vi.fn(), verifyPassword: mocks.verifyPassword },
   },
 }))
 
@@ -49,8 +48,7 @@ async function codeOf(promise: Promise<unknown>) {
 describe('account.delete', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    mocks.prisma.account.findFirst.mockResolvedValue({ password: 'hash' })
-    mocks.verify.mockResolvedValue(true)
+    mocks.verifyPassword.mockResolvedValue({ status: true })
     mocks.prisma.$transaction.mockResolvedValue([])
   })
 
@@ -79,23 +77,40 @@ describe('account.delete', () => {
     expect(mocks.prisma.$transaction).not.toHaveBeenCalled()
   })
 
-  it('refuses a wrong password and changes nothing', async () => {
-    mocks.verify.mockResolvedValue(false)
+  it('refuses a wrong password (or an account without one) and changes nothing', async () => {
+    mocks.verifyPassword.mockRejectedValue(
+      new APIError('BAD_REQUEST', { message: 'Invalid password', code: 'INVALID_PASSWORD' }),
+    )
     expect(await codeOf(callerFor().delete(input))).toBe('FORBIDDEN')
     expect(mocks.prisma.$transaction).not.toHaveBeenCalled()
   })
 
-  it('refuses accounts without a password', async () => {
-    mocks.prisma.account.findFirst.mockResolvedValue(null)
-    expect(await codeOf(callerFor().delete(input))).toBe('BAD_REQUEST')
+  it('refuses an over-long password as incorrect', async () => {
+    mocks.verifyPassword.mockRejectedValue(
+      new APIError('BAD_REQUEST', { message: 'Password too long', code: 'PASSWORD_TOO_LONG' }),
+    )
+    expect(await codeOf(callerFor().delete(input))).toBe('FORBIDDEN')
+  })
+
+  it('rejects when Better Auth no longer finds the session', async () => {
+    mocks.verifyPassword.mockRejectedValue(new APIError('UNAUTHORIZED', { code: 'UNAUTHORIZED' }))
+    expect(await codeOf(callerFor().delete(input))).toBe('UNAUTHORIZED')
+    expect(mocks.prisma.$transaction).not.toHaveBeenCalled()
+  })
+
+  it('does not hide unexpected errors', async () => {
+    mocks.verifyPassword.mockRejectedValue(new Error('database down'))
+    await expect(callerFor().delete(input)).rejects.toThrow('database down')
+    expect(mocks.prisma.$transaction).not.toHaveBeenCalled()
   })
 
   it("marks only the caller's user deleted and ends all their sessions", async () => {
     const result = await callerFor('user-9').delete(input)
 
-    expect(mocks.prisma.account.findFirst).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { userId: 'user-9', providerId: 'credential' } }),
-    )
+    expect(mocks.verifyPassword).toHaveBeenCalledWith({
+      headers: expect.any(Headers),
+      body: { password: input.password },
+    })
     expect(mocks.prisma.user.update).toHaveBeenCalledWith({
       where: { id: 'user-9' },
       data: { deletedAt: result.deletedAt },
