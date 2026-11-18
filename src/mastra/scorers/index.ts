@@ -13,6 +13,7 @@ import {
   journalToxicityScorer,
   journalUnknownScorer,
 } from './journal-companion'
+import { personalityResponseSafetyGate, personalityWordingSafetyScorer } from './personality'
 
 const JUDGE_MODEL = 'openai/gpt-5-mini'
 
@@ -30,4 +31,6 @@ export {
   journalToneScorer,
   journalToxicityScorer,
   journalUnknownScorer,
+  personalityResponseSafetyGate,
+  personalityWordingSafetyScorer,
 }

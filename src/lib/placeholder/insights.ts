@@ -35,27 +35,6 @@ export const recurringThemes: { title: string; mentions: number; trend: Trend }[
   { title: 'Reconnecting with old friends', mentions: 5, trend: 'rising' },
 ]
 
-export const personality = {
-  basedOn: 62,
-  updated: 'Aug 20',
-  traits: [
-    { trait: 'Openness', level: 'High', pct: 82 },
-    { trait: 'Conscientiousness', level: 'Moderate', pct: 58 },
-    { trait: 'Extraversion', level: 'Low', pct: 30 },
-    { trait: 'Agreeableness', level: 'High', pct: 76 },
-    { trait: 'Emotional stability', level: 'Moderate', pct: 54 },
-  ],
-  summary:
-    'You write with curiosity and warmth toward others, but tend to process big feelings alone first.',
-  meaning:
-    'You write with curiosity and warmth toward others, but tend to process big feelings alone before sharing them — journaling seems to be doing real work here.',
-}
-
-/** Desktop snapshot shows three traits. */
-export const personalitySnapshot = ['Openness', 'Agreeableness', 'Extraversion'].flatMap((name) =>
-  personality.traits.filter((t) => t.trait === name),
-)
-
 export const growthSuggestions = [
   {
     title: 'Try a Sunday wind-down ritual',

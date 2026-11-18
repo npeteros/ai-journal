@@ -13,21 +13,22 @@ datasource db {
 }
 
 model User {
-  id            String         @id
-  name          String
-  email         String
-  emailVerified Boolean        @default(false)
-  image         String?
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
-  deletedAt     DateTime?      @db.Timestamptz
-  sessions      Session[]
-  accounts      Account[]
-  aiUsageLogs   AiUsageLog[]
-  entries       Entry[]
-  tags          Tag[]
-  frameworks    Framework[]
-  insightReport InsightReport?
+  id                 String              @id
+  name               String
+  email              String
+  emailVerified      Boolean             @default(false)
+  image              String?
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+  deletedAt          DateTime?           @db.Timestamptz
+  sessions           Session[]
+  accounts           Account[]
+  aiUsageLogs        AiUsageLog[]
+  entries            Entry[]
+  tags               Tag[]
+  frameworks         Framework[]
+  insightReport      InsightReport?
+  personalityProfile PersonalityProfile?
 
   @@unique([email])
   @@map("user")
@@ -165,6 +166,24 @@ model InsightReport {
   @@map("insight_report")
 }
 
+model PersonalityProfile {
+  id           String    @id @default(uuid()) @db.Uuid
+  userId       String    @unique
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  traits       Json      @default("[]")
+  summary      String?
+  meaning      String?
+  basedOn      Int       @default(0)
+  model        String?
+  generatedAt  DateTime? @db.Timestamptz
+  generatingAt DateTime? @db.Timestamptz
+  retryAfter   DateTime? @db.Timestamptz(6)
+  createdAt    DateTime  @default(now()) @db.Timestamptz
+  updatedAt    DateTime  @updatedAt @db.Timestamptz
+
+  @@map("personality_profile")
+}
+
 model Tag {
   id             String     @id @default(uuid()) @db.Uuid
   userId         String
@@ -191,6 +210,7 @@ model EntryTag {
   @@index([tagId])
   @@map("entry_tag")
 }
+
 model Framework {
   id          String    @id @default(uuid()) @db.Uuid
   slug        String    @unique
