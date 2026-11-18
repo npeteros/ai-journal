@@ -1,6 +1,9 @@
 import type { Metadata } from 'next'
-import { KeyRound, Mail } from 'lucide-react'
+import { Mail } from 'lucide-react'
 
+import { ActiveSessions } from '@/components/settings/active-sessions'
+import { ChangePasswordForm } from '@/components/settings/change-password-form'
+import { DeleteAccount } from '@/components/settings/delete-account'
 import {
   RowIcon,
   SettingsRow,
@@ -28,17 +31,10 @@ export default async function SecuritySettingsPage() {
           label="Email"
           value={session?.user.email}
         />
-        <SettingsRow
-          icon={
-            <RowIcon tone="sage">
-              <KeyRound className="size-[15px]" strokeWidth={2} />
-            </RowIcon>
-          }
-          label="Change password"
-          // Placeholder: no change-password flow yet
-          href="/forgot-password"
-        />
       </SettingsSection>
+      <ChangePasswordForm />
+      <ActiveSessions />
+      <DeleteAccount />
     </>
   )
 }

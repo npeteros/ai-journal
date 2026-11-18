@@ -30,6 +30,7 @@ const testRouter = createTRPCRouter({
     expectTypeOf(ctx.session.userId).toEqualTypeOf<string>()
     return ctx.user.id
   }),
+  touch: protectedProcedure.mutation(({ ctx }) => ctx.user.id),
 })
 
 const createCaller = createCallerFactory(testRouter)
@@ -102,5 +103,46 @@ describe('protectedProcedure', () => {
     const caller = await callerFor(validSession)
 
     await expect(caller.whoAmI()).resolves.toBe('user-1')
+  })
+
+  it('does not look the session up again for a query', async () => {
+    const caller = await callerFor(validSession)
+
+    await caller.whoAmI()
+
+    expect(getSession).toHaveBeenCalledTimes(1)
+  })
+
+  it('re-checks the session without the cookie cache for a mutation', async () => {
+    const caller = await callerFor(validSession)
+    getSession.mockResolvedValueOnce(validSession)
+
+    await expect(caller.touch()).resolves.toBe('user-1')
+    expect(getSession).toHaveBeenLastCalledWith({
+      headers: expect.any(Headers),
+      query: { disableCookieCache: true },
+    })
+  })
+
+  it('rejects a mutation from a session revoked since the cookie was cached', async () => {
+    const caller = await callerFor(validSession)
+    getSession.mockResolvedValueOnce(null)
+
+    const error = await caller.touch().catch((e: unknown) => e)
+
+    expect(error).toBeInstanceOf(TRPCError)
+    expect((error as TRPCError).code).toBe('UNAUTHORIZED')
+  })
+
+  it('rejects a mutation from a user deleted since the cookie was cached', async () => {
+    const caller = await callerFor(validSession)
+    getSession.mockResolvedValueOnce({
+      ...validSession,
+      user: { ...validSession.user, deletedAt: new Date() },
+    })
+
+    const error = await caller.touch().catch((e: unknown) => e)
+
+    expect((error as TRPCError).code).toBe('UNAUTHORIZED')
   })
 })

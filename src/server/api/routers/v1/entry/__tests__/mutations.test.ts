@@ -1,6 +1,7 @@
 // @vitest-environment node
 import { TRPCError } from '@trpc/server'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { auth } from '@/src/server/auth/auth'
 import { createCallerFactory, type TRPCContext } from '@/src/server/trpc/init'
 import { entryRouter } from '../index'
 
@@ -46,11 +47,17 @@ vi.mock('../services/scheduleEntryAnalysis', () => ({
 const createCaller = createCallerFactory(entryRouter)
 
 function callerFor(userId = 'user-1') {
-  return createCaller({
+  const ctx = {
     headers: new Headers(),
     session: { id: 'session-1', userId },
     user: { id: userId, email: 'jaden@example.com', name: 'Jaden' },
-  } as unknown as TRPCContext)
+  } as unknown as TRPCContext
+  // Mutations look the session up again without the cookie cache; keep it signed in.
+  vi.mocked(auth.api.getSession).mockResolvedValue({
+    session: ctx.session,
+    user: ctx.user,
+  } as never)
+  return createCaller(ctx)
 }
 
 async function expectNotFound(promise: Promise<unknown>) {

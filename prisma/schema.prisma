@@ -20,6 +20,7 @@ model User {
   image              String?
   createdAt          DateTime            @default(now())
   updatedAt          DateTime            @updatedAt
+  deletedAt          DateTime?           @db.Timestamptz
   sessions           Session[]
   accounts           Account[]
   aiUsageLogs        AiUsageLog[]

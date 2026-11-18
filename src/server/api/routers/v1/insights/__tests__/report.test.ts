@@ -1,5 +1,6 @@
 // @vitest-environment node
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { auth } from '@/src/server/auth/auth'
 import { createCallerFactory, type TRPCContext } from '@/src/server/trpc/init'
 import { insightsRouter } from '../index'
 
@@ -34,11 +35,17 @@ vi.mock('../services/InsightReportService', () => ({
 const createCaller = createCallerFactory(insightsRouter)
 
 function callerFor(userId = 'user-1') {
-  return createCaller({
+  const ctx = {
     headers: new Headers(),
     session: { id: 'session-1', userId },
     user: { id: userId, email: 'jaden@example.com', name: 'Jaden' },
-  } as unknown as TRPCContext)
+  } as unknown as TRPCContext
+  // Mutations look the session up again without the cookie cache; keep it signed in.
+  vi.mocked(auth.api.getSession).mockResolvedValue({
+    session: ctx.session,
+    user: ctx.user,
+  } as never)
+  return createCaller(ctx)
 }
 
 function savedReport(overrides: Record<string, unknown> = {}) {
