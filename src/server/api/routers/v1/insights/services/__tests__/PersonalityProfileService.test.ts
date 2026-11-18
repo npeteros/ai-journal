@@ -5,6 +5,7 @@ import { describe, expect, it, vi } from 'vitest'
 
 vi.mock('@/src/lib/prisma', () => ({ default: {} }))
 
+import prisma from '@/src/lib/prisma'
 import { BIG_FIVE_TRAITS } from '../../personality-schema'
 import {
   PersonalityProfileService,
@@ -17,6 +18,7 @@ import {
   PERSONALITY_PROFILE_MAX_TOTAL_TEXT_CHARACTERS,
   PERSONALITY_PROFILE_MIN_ANALYZED_ENTRIES,
   PERSONALITY_PROFILE_MIN_NEW_ENTRIES,
+  prismaPersonalityProfileRepository,
   selectPersonalitySources,
   type PersonalityProfileGenerator,
   type PersonalityProfileRepository,
@@ -145,6 +147,86 @@ describe('PersonalityProfileService staleness and claims', () => {
     expect(fakeRepository.claimGeneration).toHaveBeenCalledOnce()
   })
 
+  it('reuses preloaded state instead of re-reading the profile and entry counts', async () => {
+    const fakeRepository = repository()
+
+    await expect(
+      service(fakeRepository).tryStart('user-1', {
+        preloaded: {
+          profile: { generatedAt: null, generatingAt: null, retryAfter: null },
+          stale: true,
+        },
+      }),
+    ).resolves.toEqual({ status: 'claimed', claimedAt: NOW })
+    expect(fakeRepository.findProfile).not.toHaveBeenCalled()
+    expect(fakeRepository.countAnalyzedEntries).not.toHaveBeenCalled()
+  })
+
+  it('honours a preloaded cooldown and a preloaded fresh profile', async () => {
+    const fakeRepository = repository()
+    const retryAfter = new Date(NOW.getTime() + 1)
+    const tryStart = service(fakeRepository).tryStart.bind(service(fakeRepository))
+
+    await expect(
+      tryStart('user-1', {
+        preloaded: { profile: { generatedAt: NOW, generatingAt: null, retryAfter }, stale: true },
+      }),
+    ).resolves.toEqual({ status: 'cooldown', retryAfter })
+    await expect(
+      tryStart('user-1', {
+        preloaded: {
+          profile: { generatedAt: NOW, generatingAt: null, retryAfter: null },
+          stale: false,
+        },
+      }),
+    ).resolves.toEqual({ status: 'not_stale' })
+    expect(fakeRepository.claimGeneration).not.toHaveBeenCalled()
+  })
+
+  it('does not start a duplicate run when another run saved after the row was read', async () => {
+    const savedAt = new Date(NOW.getTime() - 1_000)
+    const fakeRepository = repository({
+      claimGeneration: vi.fn().mockResolvedValue(false),
+      findProfile: vi
+        .fn()
+        .mockResolvedValue({ generatedAt: savedAt, generatingAt: null, retryAfter: null }),
+    })
+
+    await expect(
+      service(fakeRepository).tryStart('user-1', {
+        preloaded: {
+          profile: {
+            generatedAt: null,
+            generatingAt: new Date(NOW.getTime() - 40_000),
+            retryAfter: null,
+          },
+          stale: true,
+        },
+      }),
+    ).resolves.toEqual({ status: 'not_stale' })
+    expect(fakeRepository.claimGeneration).toHaveBeenCalledWith(
+      expect.objectContaining({ expectedGeneratedAt: null }),
+    )
+  })
+
+  it('clears an expired retryAfter when it claims a new run', async () => {
+    const updateMany = vi.fn().mockResolvedValue({ count: 1 })
+    Object.assign(prisma, { personalityProfile: { updateMany } })
+
+    await prismaPersonalityProfileRepository.claimGeneration({
+      userId: 'user-1',
+      claimedAt: NOW,
+      lockExpiresBefore: new Date(NOW.getTime() - PERSONALITY_PROFILE_LOCK_TIMEOUT_MS),
+      expectedGeneratedAt: null,
+    })
+    expect(updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ generatedAt: null }),
+        data: { generatingAt: NOW, retryAfter: null },
+      }),
+    )
+  })
+
   it('fences scheduler cleanup to its original claim', async () => {
     const fakeRepository = repository()
     await service(fakeRepository).failClaim('user-1', NOW)
@@ -195,6 +277,7 @@ describe('PersonalityProfileService staleness and claims', () => {
       userId: 'user-1',
       claimedAt: NOW,
       lockExpiresBefore: new Date(NOW.getTime() - PERSONALITY_PROFILE_LOCK_TIMEOUT_MS),
+      expectedGeneratedAt: null,
     })
   })
 
@@ -319,6 +402,34 @@ describe('PersonalityProfileService generation fencing', () => {
       })),
     ).resolves.toBe('insufficient_evidence')
     expect(fakeRepository.saveProfile).not.toHaveBeenCalled()
+  })
+
+  it('rejects prose that names neuroticism, which the UI shows as emotional stability', async () => {
+    const fakeRepository = repository()
+    const unsafeOutput = { ...output(), meaning: 'Your entries suggest higher neuroticism lately.' }
+
+    await expect(
+      service(fakeRepository).generateClaimedProfile('user-1', NOW, 'test-model', async () => ({
+        output: unsafeOutput,
+      })),
+    ).resolves.toBe('insufficient_evidence')
+    expect(fakeRepository.saveProfile).not.toHaveBeenCalled()
+  })
+
+  it('logs which check rejected the output, naming only the matched term', async () => {
+    const warn = vi.fn()
+    const unsafeOutput = { ...output(), meaning: 'Your entries suggest higher neuroticism lately.' }
+
+    await new PersonalityProfileService(
+      repository(),
+      { warn } as unknown as IMastraLogger,
+      () => NOW,
+    ).generateClaimedProfile('user-1', NOW, 'test-model', async () => ({ output: unsafeOutput }))
+
+    expect(warn).toHaveBeenCalledWith('Personality profile rejected', {
+      userId: 'user-1',
+      reason: 'safety check: blocked term "neuroticism"',
+    })
   })
 
   it('does not persist after a fenced save loses its claim', async () => {

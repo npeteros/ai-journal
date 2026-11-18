@@ -38,8 +38,6 @@ function redactContent(span: AnySpan): AnySpan {
   span.output = undefined
   span.inputPreview = undefined
   span.outputPreview = undefined
-  span.errorPreview = undefined
-  span.errorInfo = undefined
   const { attributes } = span
   if (attributes && 'prompt' in attributes) attributes.prompt = undefined
   if (attributes && 'instructions' in attributes) attributes.instructions = undefined
@@ -48,17 +46,21 @@ function redactContent(span: AnySpan): AnySpan {
 
 /**
  * Strips span input/output (prompts, completions, tool args/results) and the prompt and
- * instructions attributes and error details (agent runs, scorer steps) before export. Personality-agent traces are
- * always redacted, including when AI_LOG_CONTENT=true, because they contain journal text.
+ * instructions attributes (agent runs, scorer steps) before export, unless AI_LOG_CONTENT=true.
+ * Personality-agent traces are always redacted, error details included, because a provider error
+ * can echo journal text. Other agents keep their error details for diagnosis.
  */
 export class ContentRedactionProcessor implements SpanOutputProcessor {
   name = 'content-redaction'
 
   process(span?: AnySpan): AnySpan | undefined {
     if (!span) return span
-    return isSensitiveAgentSpan(span) || process.env.AI_LOG_CONTENT !== 'true'
-      ? redactContent(span)
-      : span
+    if (isSensitiveAgentSpan(span)) {
+      span.errorPreview = undefined
+      span.errorInfo = undefined
+      return redactContent(span)
+    }
+    return process.env.AI_LOG_CONTENT !== 'true' ? redactContent(span) : span
   }
 
   async shutdown(): Promise<void> {}

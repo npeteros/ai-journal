@@ -60,6 +60,14 @@ describe('personality workflow', () => {
     )
   })
 
+  it('fails the step on a rate-limit tripwire instead of reporting success', async () => {
+    mocks.generateClaimedProfile.mockResolvedValue('rate_limited')
+
+    await expect(runStep(createUserRequestContext('user-1'))).rejects.toThrow(
+      'Personality profile generation was rate limited',
+    )
+  })
+
   it('refuses to run without an authenticated user context', async () => {
     await expect(runStep(new RequestContext())).rejects.toThrow(
       'Personality workflow requires a user RequestContext',

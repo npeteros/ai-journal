@@ -2,8 +2,22 @@
 
 import Link from 'next/link'
 import { keepPreviousData, useMutation, useQuery } from '@tanstack/react-query'
-import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react'
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+  type ReactNode,
+} from 'react'
 
+import { EntryPreviewPanel } from '@/components/chat/entry-preview-panel'
+import {
+  EvidenceRow,
+  type EvidenceEntry,
+  type EvidencePreview,
+} from '@/components/insights/evidence-row'
 import { getApiErrorMessage } from '@/components/journal/api-error'
 import { JadenFor, JadenPerch, PLACEMENTS } from '@/components/jaden'
 import { Rise } from '@/components/motion'
@@ -22,6 +36,7 @@ type ClientInsightReport = {
     mentions: number
     trend: 'rising' | 'steady' | 'falling'
     entryIds: string[]
+    entries: EvidenceEntry[]
   }[]
   growthSuggestions: { title: string; body: string; short: string; entryIds: string[] }[]
   trendCaption: string | null
@@ -349,6 +364,8 @@ export function RecurringThemes() {
   const { query } = useInsightReport()
   const report = query.data?.report
   const themes = report?.recurringThemes ?? []
+  const [preview, setPreview] = useState<EvidencePreview | null>(null)
+  const closePreview = useCallback(() => setPreview(null), [])
 
   return (
     <Card className="flex min-h-[188px] flex-col gap-1 lg:p-6">
@@ -362,20 +379,37 @@ export function RecurringThemes() {
       ) : (
         <ul className="divide-y divide-neutral-200">
           {themes.map((theme) => (
-            <li key={theme.title} className="flex items-center justify-between gap-4 py-3.5">
-              <div className="flex flex-col gap-1">
-                <span className="text-[14px] font-semibold text-neutral-900">{theme.title}</span>
-                <span className="text-[12px] text-neutral-400">
-                  Mentioned in {theme.mentions} {theme.mentions === 1 ? 'entry' : 'entries'}
-                </span>
-              </div>
-              <span className="rounded-full bg-neutral-100 px-2.5 py-1 text-[11px] font-bold text-neutral-600">
-                {theme.trend}
-              </span>
+            <li key={theme.title}>
+              <EvidenceRow
+                className="py-3.5"
+                summary={
+                  <span className="flex flex-col gap-1">
+                    <span className="text-[14px] font-semibold text-neutral-900">
+                      {theme.title}
+                    </span>
+                    <span className="text-[12px] text-neutral-400">
+                      Mentioned in {theme.mentions} {theme.mentions === 1 ? 'entry' : 'entries'}
+                    </span>
+                  </span>
+                }
+                aside={
+                  <span className="rounded-full bg-neutral-100 px-2.5 py-1 text-[11px] font-bold text-neutral-600">
+                    {theme.trend}
+                  </span>
+                }
+                entries={theme.entries}
+                citedFor={theme.title}
+                onOpen={setPreview}
+              />
             </li>
           ))}
         </ul>
       )}
+      <EntryPreviewPanel
+        entry={preview?.entry ?? null}
+        label={preview?.label}
+        onClose={closePreview}
+      />
     </Card>
   )
 }

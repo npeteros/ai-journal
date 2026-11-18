@@ -44,6 +44,19 @@ describe('ContentRedactionProcessor', () => {
     expect(span?.attributes).toEqual({ prompt: undefined, instructions: undefined, maxSteps: 5 })
   })
 
+  it('keeps error details on other agents so failures stay diagnosable', () => {
+    const errorInfo = { message: 'Provider returned 500' }
+    const span = new ContentRedactionProcessor().process({
+      ...agentRunSpan(),
+      errorPreview: 'Provider returned 500',
+      errorInfo,
+    } as unknown as AnySpan)
+
+    expect(span?.input).toBeUndefined()
+    expect(span?.errorPreview).toBe('Provider returned 500')
+    expect(span?.errorInfo).toBe(errorInfo)
+  })
+
   it('leaves content in place when AI_LOG_CONTENT=true', () => {
     vi.stubEnv('AI_LOG_CONTENT', 'true')
 

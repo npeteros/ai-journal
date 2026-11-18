@@ -1,4 +1,6 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import type { ReactElement } from 'react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => ({
@@ -13,20 +15,34 @@ vi.mock('next/navigation', () => ({
 }))
 
 const { MobileTopBar } = await import('./mobile-top-bar')
+const { fullPageNavigation } = await import('./use-sign-out')
+
+function renderWithClient(ui: ReactElement) {
+  const queryClient = new QueryClient()
+  // Stands in for a signed-in user's cached data, which sign-out must drop.
+  queryClient.setQueryData(['signed-in-data'], { private: true })
+  return {
+    queryClient,
+    ...render(<QueryClientProvider client={queryClient}>{ui}</QueryClientProvider>),
+  }
+}
 
 const user = { name: 'Maya Chen', email: 'maya@example.com' }
 
 describe('MobileTopBar account menu', () => {
-  beforeEach(() => vi.clearAllMocks())
+  beforeEach(() => {
+    vi.clearAllMocks()
+    vi.spyOn(fullPageNavigation, 'assign').mockImplementation(() => undefined)
+  })
 
   it('shows the logo and the account avatar', () => {
-    render(<MobileTopBar user={user} />)
+    renderWithClient(<MobileTopBar user={user} />)
     expect(screen.getByRole('link', { name: 'JADEN home' })).toBeTruthy()
     expect(within(screen.getByRole('button', { name: 'Account' })).getByText('MC')).toBeTruthy()
   })
 
   it('opens a sheet with the user, Settings and Sign out', async () => {
-    render(<MobileTopBar user={user} />)
+    renderWithClient(<MobileTopBar user={user} />)
     fireEvent.click(screen.getByRole('button', { name: 'Account' }))
 
     const sheet = await screen.findByRole('dialog')
@@ -39,12 +55,12 @@ describe('MobileTopBar account menu', () => {
 
   it('signs out from the sheet and goes to /login', async () => {
     mocks.signOut.mockResolvedValue({ data: { success: true }, error: null })
-    render(<MobileTopBar user={user} />)
+    const { queryClient } = renderWithClient(<MobileTopBar user={user} />)
     fireEvent.click(screen.getByRole('button', { name: 'Account' }))
 
     fireEvent.click(await screen.findByRole('button', { name: 'Sign out' }))
 
-    await waitFor(() => expect(mocks.push).toHaveBeenCalledWith('/login'))
-    expect(mocks.refresh).toHaveBeenCalled()
+    await waitFor(() => expect(fullPageNavigation.assign).toHaveBeenCalledWith('/login'))
+    expect(queryClient.getQueryData(['signed-in-data'])).toBeUndefined()
   })
 })

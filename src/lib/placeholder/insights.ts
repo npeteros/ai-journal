@@ -53,34 +53,6 @@ export const growthSuggestions = [
   },
 ]
 
-export type StoryRange = 'daily' | 'weekly' | 'monthly' | 'yearly'
-
-export const storyMonths: { month: string; mood: Mood; summary: string; quote: string }[] = [
-  {
-    month: 'August',
-    mood: 'calm',
-    summary: '18 entries · mostly calm, with a dip mid-month around a work deadline.',
-    quote: 'Woke up before the alarm and just sat with my coffee...',
-  },
-  {
-    month: 'July',
-    mood: 'grateful',
-    summary: '22 entries · a busy but proud month, capped by a short trip.',
-    quote: "Three days away and I actually didn't check my phone once.",
-  },
-  {
-    month: 'June',
-    mood: 'hard',
-    summary: '14 entries · a harder month, with a stretch of low energy.',
-    quote: 'Not sure why today felt so heavy, but I got through it.',
-  },
-]
-
-export const storyQuote = {
-  text: 'Woke up before the alarm and just sat with my coffee for a while, no phone, no rush.',
-  source: 'A slower morning · Aug 25',
-}
-
 export const weeklyReview = {
   range: 'Aug 18–24',
   sentAt: 'Sun, Aug 24 · 8:00 AM',

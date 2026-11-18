@@ -4,12 +4,16 @@ import { InsightReportOutputSchema } from '../../report-schema'
 import { insightReportService } from '../../services/InsightReportService'
 import { scheduleInsightReportGeneration } from '../../services/scheduleInsightReportGeneration'
 
+export type ThemeEntry = { id: string; title: string; entryDate: Date }
+
 export type StoredInsightReport = {
   recurringThemes: {
     title: string
     mentions: number
     trend: 'rising' | 'steady' | 'falling'
     entryIds: string[]
+    /** The cited entries the user still has, for citation chips. */
+    entries: ThemeEntry[]
   }[]
   growthSuggestions: { title: string; body: string; short: string; entryIds: string[] }[]
   trendCaption: string | null
@@ -61,6 +65,19 @@ function reportResponse(
   }
 }
 
+/**
+ * Titles and dates for the entries themes cite. Scoped to the user and skips deleted entries, so a
+ * report generated before an entry was deleted never links to it.
+ */
+async function loadThemeEntries(userId: string, ids: string[]): Promise<Map<string, ThemeEntry>> {
+  if (ids.length === 0) return new Map()
+  const entries = await prisma.entry.findMany({
+    where: { id: { in: [...new Set(ids)] }, userId, deletedAt: null },
+    select: { id: true, title: true, entryDate: true },
+  })
+  return new Map(entries.map((entry) => [entry.id, entry]))
+}
+
 /** Returns the saved report immediately and starts stale report regeneration after the response. */
 export const report = protectedProcedure.query(async ({ ctx }): Promise<InsightReportResponse> => {
   // `tryStart` checks staleness itself (and claims stale work), so it runs alongside the read of
@@ -96,8 +113,18 @@ export const report = protectedProcedure.query(async ({ ctx }): Promise<InsightR
       trendCaption: stored.trendCaption,
     })
     if (parsed.success) {
+      const themeEntries = await loadThemeEntries(
+        ctx.user.id,
+        parsed.data.recurringThemes.flatMap((theme) => theme.entryIds),
+      )
       savedReport = {
-        recurringThemes: parsed.data.recurringThemes,
+        recurringThemes: parsed.data.recurringThemes.map((theme) => ({
+          ...theme,
+          entries: theme.entryIds.flatMap((id) => {
+            const entry = themeEntries.get(id)
+            return entry ? [entry] : []
+          }),
+        })),
         growthSuggestions: parsed.data.growthSuggestions,
         trendCaption: parsed.data.trendCaption,
         periodStart: stored.periodStart,

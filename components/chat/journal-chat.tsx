@@ -5,7 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties }
 import { useChat } from '@ai-sdk/react'
 import { DefaultChatTransport, isTextUIPart, isToolUIPart, type UIMessage } from 'ai'
 import { AnimatePresence, motion } from 'motion/react'
-import { ArrowRight, BookOpen, Mic } from 'lucide-react'
+import { ArrowRight, Mic } from 'lucide-react'
 import { cn } from 'cn'
 
 import { JadenFor, JadenPerch, PLACEMENTS, belowEdge, heightFor } from '@/components/jaden'
@@ -13,6 +13,7 @@ import { SPRING } from '@/components/motion'
 import { AiLabel, Orb } from '@/components/ui/ai'
 import { CHAT_API, CHAT_CONTEXT_MESSAGES, chatRateLimitMessage } from '@/src/lib/chat'
 import { collectEntryRefs, splitCitations, type EntryRef } from './citations'
+import { EntryCitationChip } from './entry-citation-chip'
 import { EntryPreviewPanel } from './entry-preview-panel'
 
 const STARTER_QUESTIONS = [
@@ -280,17 +281,7 @@ function AssistantText({
     segment.type === 'text' ? (
       <span key={i}>{segment.text}</span>
     ) : (
-      <button
-        key={i}
-        type="button"
-        onClick={() => onCite(segment.entry)}
-        aria-haspopup="dialog"
-        className="mx-0.5 inline-flex cursor-pointer items-center gap-1 rounded-full bg-neutral-100 px-2 py-0.5 align-baseline text-[13px] font-semibold text-cloud-700 hover:underline"
-      >
-        <BookOpen className="size-3.5" aria-hidden />
-        {segment.entry.title}
-        <span className="font-normal text-neutral-400">· {segment.entry.date}</span>
-      </button>
+      <EntryCitationChip key={i} entry={segment.entry} onOpen={onCite} />
     ),
   )
 }

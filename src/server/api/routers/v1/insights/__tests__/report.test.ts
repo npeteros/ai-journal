@@ -14,7 +14,7 @@ const mocks = vi.hoisted(() => ({
   startWorkflow: vi.fn(),
   warn: vi.fn(),
   tryStart: vi.fn(),
-  prisma: { insightReport: { findUnique: vi.fn() } },
+  prisma: { insightReport: { findUnique: vi.fn() }, entry: { findMany: vi.fn() } },
 }))
 
 vi.mock('next/server', () => ({ after: mocks.after }))
@@ -70,6 +70,13 @@ describe('insights report API', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mocks.prisma.insightReport.findUnique.mockResolvedValue(savedReport())
+    mocks.prisma.entry.findMany.mockResolvedValue([
+      {
+        id: ENTRY_ID,
+        title: 'Late night at work',
+        entryDate: new Date('2026-08-10T00:00:00.000Z'),
+      },
+    ])
     mocks.tryStart.mockResolvedValue({ status: 'not_stale' })
     mocks.startWorkflow.mockResolvedValue({ status: 'success' })
     mocks.createRun.mockResolvedValue({ start: mocks.startWorkflow })
@@ -87,6 +94,27 @@ describe('insights report API', () => {
     expect(mocks.tryStart).toHaveBeenCalledOnce()
     expect(mocks.tryStart).toHaveBeenCalledWith('user-1')
     expect(mocks.after).not.toHaveBeenCalled()
+  })
+
+  it("attaches each theme's cited entries, scoped to the user and skipping deleted ones", async () => {
+    const result = await callerFor('user-2').report()
+
+    expect(mocks.prisma.entry.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: { in: [ENTRY_ID] }, userId: 'user-2', deletedAt: null },
+      }),
+    )
+    expect(result.report?.recurringThemes[0]?.entries).toEqual([
+      {
+        id: ENTRY_ID,
+        title: 'Late night at work',
+        entryDate: new Date('2026-08-10T00:00:00.000Z'),
+      },
+    ])
+
+    mocks.prisma.entry.findMany.mockResolvedValue([])
+    const afterDelete = await callerFor('user-2').report()
+    expect(afterDelete.report?.recurringThemes[0]?.entries).toEqual([])
   })
 
   it('claims stale work once and responds with the previous report while it updates', async () => {
