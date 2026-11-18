@@ -13,7 +13,7 @@ const mocks = vi.hoisted(() => {
       updateMany: vi.fn(),
       findUniqueOrThrow: vi.fn(),
     },
-    tag: { upsert: vi.fn() },
+    tag: { createMany: vi.fn(), updateMany: vi.fn(), findMany: vi.fn() },
     entryTag: {
       createMany: vi.fn(),
       deleteMany: vi.fn(),
@@ -66,10 +66,10 @@ describe('entry mutations', () => {
     mocks.tx.entry.create.mockResolvedValue({ id: ENTRY_ID })
     mocks.tx.entry.updateMany.mockResolvedValue({ count: 1 })
     mocks.tx.entry.findUniqueOrThrow.mockResolvedValue({ id: ENTRY_ID })
-    mocks.tx.tag.upsert.mockImplementation(async ({ create }) => ({
-      id: create.normalizedName,
-      ...create,
-    }))
+    mocks.tx.tag.findMany.mockImplementation(
+      async ({ where }: { where: { normalizedName: { in: string[] } } }) =>
+        where.normalizedName.in.map((normalizedName) => ({ id: normalizedName, normalizedName })),
+    )
     mocks.generateTitle.mockResolvedValue('Generated journal title')
   })
 
@@ -119,13 +119,21 @@ describe('entry mutations', () => {
     expect(mocks.tx.entry.create).toHaveBeenCalledWith(
       expect.objectContaining({ data: expect.objectContaining({ title: 'My Own Title' }) }),
     )
-    expect(mocks.tx.tag.upsert).toHaveBeenCalledTimes(2)
-    expect(mocks.tx.tag.upsert).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: { userId_normalizedName: { userId: 'user-1', normalizedName: 'work' } },
-        update: { deletedAt: null },
-      }),
-    )
+    expect(mocks.tx.tag.createMany).toHaveBeenCalledWith({
+      data: [
+        { userId: 'user-1', name: 'Work', normalizedName: 'work' },
+        { userId: 'user-1', name: 'Home', normalizedName: 'home' },
+      ],
+      skipDuplicates: true,
+    })
+    expect(mocks.tx.tag.updateMany).toHaveBeenCalledWith({
+      where: {
+        userId: 'user-1',
+        normalizedName: { in: ['work', 'home'] },
+        deletedAt: { not: null },
+      },
+      data: { deletedAt: null },
+    })
     expect(mocks.tx.entryTag.createMany).toHaveBeenCalledWith({
       data: [
         { entryId: ENTRY_ID, tagId: 'work' },
@@ -166,6 +174,7 @@ describe('entry mutations', () => {
     mocks.prisma.entry.findFirst.mockResolvedValue({
       title: 'Existing title',
       body: 'Existing body',
+      tags: [{ tag: { normalizedName: 'work', deletedAt: null } }],
     })
 
     await callerFor().update({ id: ENTRY_ID, body: 'Updated body', tags: [] })
@@ -180,6 +189,7 @@ describe('entry mutations', () => {
     mocks.prisma.entry.findFirst.mockResolvedValue({
       title: 'Existing title',
       body: 'Existing body',
+      tags: [],
     })
 
     await callerFor().update({
@@ -200,10 +210,45 @@ describe('entry mutations', () => {
     expect(data.entryDate.toISOString().slice(0, 10)).toBe('2026-08-25')
   })
 
+  it('leaves tag links alone when the tags are unchanged', async () => {
+    mocks.prisma.entry.findFirst.mockResolvedValue({
+      title: 'Existing title',
+      body: 'Existing body',
+      tags: [
+        { tag: { normalizedName: 'home', deletedAt: null } },
+        { tag: { normalizedName: 'work', deletedAt: null } },
+      ],
+    })
+
+    await callerFor().update({ id: ENTRY_ID, body: 'Updated body', tags: ['Work', 'home'] })
+
+    expect(mocks.tx.tag.createMany).not.toHaveBeenCalled()
+    expect(mocks.tx.entryTag.deleteMany).not.toHaveBeenCalled()
+    expect(mocks.tx.entryTag.createMany).not.toHaveBeenCalled()
+    expect(mocks.tx.entry.updateMany).toHaveBeenCalledOnce()
+  })
+
+  it('relinks tags when a linked tag was deleted, even if the names match', async () => {
+    mocks.prisma.entry.findFirst.mockResolvedValue({
+      title: 'Existing title',
+      body: 'Existing body',
+      tags: [{ tag: { normalizedName: 'work', deletedAt: new Date('2026-08-01T00:00:00Z') } }],
+    })
+
+    await callerFor().update({ id: ENTRY_ID, tags: ['Work'] })
+
+    expect(mocks.tx.tag.updateMany).toHaveBeenCalledOnce()
+    expect(mocks.tx.entryTag.deleteMany).toHaveBeenCalledWith({ where: { entryId: ENTRY_ID } })
+    expect(mocks.tx.entryTag.createMany).toHaveBeenCalledWith({
+      data: [{ entryId: ENTRY_ID, tagId: 'work' }],
+    })
+  })
+
   it('rejects a concurrent deletion and lets the transaction callback fail', async () => {
     mocks.prisma.entry.findFirst.mockResolvedValue({
       title: 'Existing title',
       body: 'Existing body',
+      tags: [],
     })
     mocks.tx.entry.updateMany.mockResolvedValue({ count: 0 })
 
@@ -235,6 +280,7 @@ describe('entry mutations', () => {
       mocks.prisma.entry.findFirst.mockResolvedValue({
         title: 'Existing title',
         body: 'Existing body',
+        tags: [],
       })
     })
 

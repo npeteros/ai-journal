@@ -12,7 +12,6 @@ export const updateFramework = protectedProcedure
       where: { id, userId: ctx.user.id, deletedAt: null },
       data: {
         ...input,
-        prompts: input.prompts.map((prompt) => ({ prompt })),
         minutes: input.minutes ?? input.prompts.length * 2,
       },
     })
@@ -21,5 +20,5 @@ export const updateFramework = protectedProcedure
       throw new TRPCError({ code: 'NOT_FOUND', message: 'Framework not found.' })
     }
 
-    return prisma.framework.findUniqueOrThrow({ where: { id }, select: { id: true, slug: true } })
+    return { id }
   })

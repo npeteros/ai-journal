@@ -8,10 +8,10 @@ import {
 
 const GENERIC_MESSAGE = 'Something went wrong. Please try again.'
 
-type Issue = { code?: string; path?: PropertyKey[]; message?: string }
+export type Issue = { code?: string; path?: PropertyKey[]; message?: string }
 
 /** Input validation failures reach the client as a JSON array of Zod issues in `message`. */
-function parseIssues(message: string): Issue[] | null {
+export function parseIssues(message: string): Issue[] | null {
   try {
     const parsed: unknown = JSON.parse(message)
     return Array.isArray(parsed) ? (parsed as Issue[]) : null

@@ -12,23 +12,40 @@ export function getEntryDate(writtenAt: Date, timeZone: string): Date {
   return new Date(Date.UTC(Number(values.year), Number(values.month) - 1, Number(values.day)))
 }
 
+/**
+ * Finds or creates the user's tags for `names` (already de-duplicated case-insensitively by the
+ * schema), in the given order. Three queries however many tags there are.
+ */
 export async function findOrCreateTags(
   tx: Prisma.TransactionClient,
   userId: string,
   names: string[],
 ) {
-  const tags = []
+  if (names.length === 0) return []
 
-  for (const name of names) {
-    const normalizedName = name.toLowerCase()
-    const tag = await tx.tag.upsert({
-      where: { userId_normalizedName: { userId, normalizedName } },
-      create: { userId, name, normalizedName },
-      // A matching soft-deleted tag is restored and retains its existing identity.
-      update: { deletedAt: null },
-    })
-    tags.push(tag)
-  }
+  const rows = names.map((name) => ({ userId, name, normalizedName: name.toLowerCase() }))
+  const normalizedNames = rows.map((row) => row.normalizedName)
 
-  return tags
+  await tx.tag.createMany({ data: rows, skipDuplicates: true })
+  // A matching soft-deleted tag is restored and retains its existing identity.
+  await tx.tag.updateMany({
+    where: { userId, normalizedName: { in: normalizedNames }, deletedAt: { not: null } },
+    data: { deletedAt: null },
+  })
+  const tags = await tx.tag.findMany({
+    where: { userId, normalizedName: { in: normalizedNames } },
+  })
+
+  const byName = new Map(tags.map((tag) => [tag.normalizedName, tag]))
+  return normalizedNames.flatMap((normalizedName) => byName.get(normalizedName) ?? [])
+}
+
+type LinkedTag = { tag: { normalizedName: string; deletedAt: Date | null } }
+
+/** Whether `names` matches the entry's current tags, ignoring order and case. */
+export function hasSameTags(current: LinkedTag[], names: string[]) {
+  // A link to a deleted tag means the stored set differs from what the user sees.
+  if (current.some(({ tag }) => tag.deletedAt !== null)) return false
+  const next = new Set(names.map((name) => name.toLowerCase()))
+  return current.length === next.size && current.every(({ tag }) => next.has(tag.normalizedName))
 }

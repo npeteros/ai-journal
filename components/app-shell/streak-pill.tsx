@@ -7,10 +7,15 @@ import { FlameIcon } from '@/components/brand/icons'
 import { APP_TIME_ZONE } from '@/src/lib/app-time-zone'
 import { useTRPC } from '@/src/server/trpc/client'
 
-/** Current streak, hydrated from the layout's prefetch. Decorative, so a failed query shows 0. */
+/**
+ * Current streak, streamed from the layout's prefetch. While it loads, the label keeps its space
+ * but stays hidden so it never flashes "0". Decorative, so a failed query shows 0.
+ */
 export function StreakPill({ className }: { className?: string }) {
   const trpc = useTRPC()
-  const { data } = useQuery(trpc.v1.entry.stats.queryOptions({ timeZone: APP_TIME_ZONE }))
+  const { data, isPending } = useQuery(
+    trpc.v1.entry.stats.queryOptions({ timeZone: APP_TIME_ZONE }),
+  )
   const days = data?.currentStreak ?? 0
 
   return (
@@ -21,7 +26,15 @@ export function StreakPill({ className }: { className?: string }) {
       )}
     >
       <FlameIcon className="lv-flame text-amber-500" />
-      <span className="text-[13px] leading-none font-bold text-amber-700">{days} day streak</span>
+      <span
+        aria-busy={isPending}
+        className={cn(
+          'text-[13px] leading-none font-bold text-amber-700',
+          isPending && 'invisible',
+        )}
+      >
+        {days} day streak
+      </span>
     </span>
   )
 }

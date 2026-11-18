@@ -18,7 +18,6 @@ export const createFramework = protectedProcedure
   .mutation(async ({ ctx, input }) => {
     const data = {
       ...input,
-      prompts: input.prompts.map((prompt) => ({ prompt })),
       minutes: input.minutes ?? input.prompts.length * 2,
       userId: ctx.user.id,
     }

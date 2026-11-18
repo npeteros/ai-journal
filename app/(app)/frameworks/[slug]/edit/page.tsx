@@ -4,17 +4,15 @@ import { notFound } from 'next/navigation'
 import { Page } from '@/components/app-shell/page'
 import { FrameworkBuilder } from '@/components/frameworks/framework-builder'
 import { isFrameworkIconName } from '@/components/frameworks/framework-icon'
-import { getQueryClient, trpc } from '@/src/server/trpc/server'
+import { loadFramework } from '../../load-framework'
 
 export const metadata: Metadata = { title: 'Edit framework' }
 
-export default async function FrameworkEditPage(props: { params: Promise<{ slug: string }> }) {
+export default async function FrameworkEditPage(props: PageProps<'/frameworks/[slug]/edit'>) {
   const { slug } = await props.params
-  const framework = await getQueryClient()
-    .fetchQuery(trpc.v1.framework.findOneBySlug.queryOptions({ slug }))
-    .catch(() => null)
+  const framework = await loadFramework(slug)
   // Built-in templates and other users' frameworks can't be updated, so there is nothing to edit.
-  if (!framework?.isOwn) notFound()
+  if (!framework.isOwn) notFound()
 
   return (
     <Page tone="meadow" className="lg:pt-8">
@@ -24,7 +22,7 @@ export default async function FrameworkEditPage(props: { params: Promise<{ slug:
           title: framework.title,
           description: framework.description,
           icon: isFrameworkIconName(framework.icon) ? framework.icon : 'layers',
-          prompts: framework.prompts.map((p) => p.prompt),
+          prompts: framework.prompts,
         }}
       />
     </Page>

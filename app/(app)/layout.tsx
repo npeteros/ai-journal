@@ -1,3 +1,4 @@
+import type { Metadata } from 'next'
 import type { ReactNode } from 'react'
 import { dehydrate, HydrationBoundary } from '@tanstack/react-query'
 import { headers } from 'next/headers'
@@ -8,6 +9,9 @@ import { APP_TIME_ZONE } from '@/src/lib/app-time-zone'
 import { PATHNAME_HEADER, STALE_SESSION_PARAM } from '@/src/lib/auth/redirect'
 import { getServerSession } from '@/src/server/auth/session'
 import { getQueryClient, trpc } from '@/src/server/trpc/server'
+
+// Signed-in pages are private: keep them out of search results.
+export const metadata: Metadata = { robots: { index: false, follow: false } }
 
 // Authoritative session check. `proxy.ts` only checks that the cookie exists, so an expired
 // or revoked session gets this far. The stale flag stops the proxy bouncing /login back here,
@@ -22,9 +26,10 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
     redirect(`/login?${params}`)
   }
 
-  // Prefetch the streak so the pill renders with the real number instead of flashing.
+  // Start the streak query without waiting for it: the pending query is dehydrated and streams to
+  // the pill, so the shell renders right away (see `shouldDehydrateQuery` in query-client.ts).
   const queryClient = getQueryClient()
-  await queryClient.prefetchQuery(trpc.v1.entry.stats.queryOptions({ timeZone: APP_TIME_ZONE }))
+  void queryClient.prefetchQuery(trpc.v1.entry.stats.queryOptions({ timeZone: APP_TIME_ZONE }))
 
   const user = { name: session.user.name, email: session.user.email }
 
