@@ -42,7 +42,7 @@ export type TRPCContext = Awaited<ReturnType<typeof createTRPCContext>>
 const t = initTRPC.context<TRPCContext>().create()
 
 const isAuthed = t.middleware(({ ctx, next }) => {
-  if (!ctx.session || !ctx.user) {
+  if (!ctx.session || !ctx.user || ctx.user.deletedAt) {
     throw new TRPCError({ code: 'UNAUTHORIZED' })
   }
 

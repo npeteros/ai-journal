@@ -1,6 +1,7 @@
 import { betterAuth } from 'better-auth'
 import { prismaAdapter } from 'better-auth/adapters/prisma'
 import prisma from '@/src/lib/prisma'
+import { assertAccountNotDeleted } from './deleted-account'
 
 /**
  * Preview deployments are served from their own hostnames (the per-deployment URL and the branch
@@ -21,6 +22,23 @@ export const auth = betterAuth({
   }),
   emailAndPassword: {
     enabled: true,
+  },
+  user: {
+    additionalFields: {
+      // Soft delete marker (see `v1.account.delete`). Never settable from a request.
+      deletedAt: { type: 'date', required: false, input: false },
+    },
+  },
+  databaseHooks: {
+    session: {
+      create: {
+        // Runs after the password has been checked, so it can't be used to probe which emails
+        // belong to deleted accounts.
+        before: async (session) => {
+          await assertAccountNotDeleted(session.userId)
+        },
+      },
+    },
   },
   session: {
     // Keeps a signed copy of the session in a cookie, so most requests skip the session and user
