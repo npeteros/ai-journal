@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Monitor, Smartphone } from 'lucide-react'
 
@@ -11,6 +11,9 @@ import { describeDevice, isMobileUserAgent } from '@/src/lib/user-agent'
 import { RowIcon, SettingsSection } from './settings-ui'
 
 export const SESSIONS_QUERY_KEY = ['auth', 'sessions'] as const
+
+/** How often the "Active …" times are recalculated while the page is open. */
+export const NOW_TICK_MS = 60_000
 
 const rowClass = 'flex min-h-[60px] items-center justify-between gap-4 px-5 py-3.5'
 
@@ -33,6 +36,13 @@ export function ActiveSessions() {
       return data
     },
   })
+
+  // The current time, refreshed every minute so "Active 2 minutes ago" keeps counting.
+  const [now, setNow] = useState(() => new Date())
+  useEffect(() => {
+    const timer = setInterval(() => setNow(new Date()), NOW_TICK_MS)
+    return () => clearInterval(timer)
+  }, [])
 
   const refresh = () => queryClient.invalidateQueries({ queryKey: SESSIONS_QUERY_KEY })
 
@@ -76,7 +86,6 @@ export function ActiveSessions() {
       new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
   )
   const hasOthers = list.some((s) => s.id !== currentId)
-  const now = new Date(sessions.dataUpdatedAt)
   const error = sessions.error?.message ?? actionError
 
   return (

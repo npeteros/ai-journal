@@ -1,7 +1,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { ActiveSessions } from './active-sessions'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { ActiveSessions, NOW_TICK_MS } from './active-sessions'
 
 const CHROME = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/126.0.0.0 Safari/537.36'
 
@@ -47,6 +47,8 @@ function renderSessions() {
 }
 
 describe('ActiveSessions', () => {
+  afterEach(() => vi.useRealTimers())
+
   beforeEach(() => {
     vi.clearAllMocks()
     mocks.listSessions.mockResolvedValue({
@@ -84,5 +86,17 @@ describe('ActiveSessions', () => {
 
     await waitFor(() => expect(screen.queryByRole('alert')).toBeNull())
     expect(mocks.revokeOtherSessions).toHaveBeenCalledTimes(1)
+  })
+
+  it('keeps the "Active" times counting while the page stays open', async () => {
+    vi.useFakeTimers({ now: new Date('2026-11-18T12:00:00Z'), shouldAdvanceTime: true })
+    mocks.listSessions.mockResolvedValue({ data: [session('current')], error: null })
+    renderSessions()
+
+    expect(await screen.findByText(/Active Just now/)).toBeTruthy()
+
+    await act(async () => vi.advanceTimersByTime(2 * NOW_TICK_MS))
+
+    expect(screen.getByText(/Active 2 minutes ago/)).toBeTruthy()
   })
 })

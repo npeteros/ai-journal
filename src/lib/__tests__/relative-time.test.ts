@@ -17,6 +17,11 @@ describe('formatRelativeTime', () => {
     expect(formatRelativeTime(ago(3 * 86400), NOW)).toBe('3 days ago')
   })
 
+  it('reads a time slightly in the future (clock skew) as "Just now"', () => {
+    expect(formatRelativeTime(ago(-3 * 60), NOW)).toBe('Just now')
+    expect(formatRelativeTime(ago(-2 * 86400), NOW)).toBe('Just now')
+  })
+
   it('switches to a plain date after a week', () => {
     expect(formatRelativeTime(new Date('2026-05-01T12:00:00Z'), NOW)).toBe('May 1, 2026')
   })
