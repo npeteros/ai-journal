@@ -1,13 +1,18 @@
 'use client'
 
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useQueryClient } from '@tanstack/react-query'
 
 import { signOut } from '@/src/lib/auth-client'
 
+/** Indirection so tests can observe the full-page navigation (jsdom can't replace `location`). */
+export const fullPageNavigation = {
+  assign: (url: string) => window.location.assign(url),
+}
+
 /** Signs the user out and sends them to /login. Shared by the sidebar footer and mobile account sheet. */
 export function useSignOut() {
-  const router = useRouter()
+  const queryClient = useQueryClient()
   const [pending, setPending] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -22,9 +27,8 @@ export function useSignOut() {
       return
     }
 
-    // Left pending on success so the button stays disabled until the navigation lands.
-    router.push('/login')
-    router.refresh()
+    queryClient.clear()
+    fullPageNavigation.assign('/login')
   }
 
   return { signOut: signOutUser, pending, error }

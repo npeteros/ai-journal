@@ -1,4 +1,6 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import type { ReactElement } from 'react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => ({
@@ -13,6 +15,17 @@ vi.mock('next/navigation', () => ({
 }))
 
 const { UserFooter } = await import('./user-footer')
+const { fullPageNavigation } = await import('./use-sign-out')
+
+function renderWithClient(ui: ReactElement) {
+  const queryClient = new QueryClient()
+  // Stands in for a signed-in user's cached data, which sign-out must drop.
+  queryClient.setQueryData(['signed-in-data'], { private: true })
+  return {
+    queryClient,
+    ...render(<QueryClientProvider client={queryClient}>{ui}</QueryClientProvider>),
+  }
+}
 const { initialsFor } = await import('./user-avatar')
 
 const user = { name: 'Maya Chen', email: 'maya@example.com' }
@@ -29,10 +42,13 @@ describe('initialsFor', () => {
 })
 
 describe('UserFooter', () => {
-  beforeEach(() => vi.clearAllMocks())
+  beforeEach(() => {
+    vi.clearAllMocks()
+    vi.spyOn(fullPageNavigation, 'assign').mockImplementation(() => undefined)
+  })
 
   it('shows the signed-in user', () => {
-    render(<UserFooter user={user} />)
+    renderWithClient(<UserFooter user={user} />)
     expect(screen.getByText('Maya Chen')).toBeTruthy()
     expect(screen.getByText('maya@example.com')).toBeTruthy()
     expect(screen.getByText('MC')).toBeTruthy()
@@ -40,23 +56,23 @@ describe('UserFooter', () => {
 
   it('signs out and goes to /login', async () => {
     mocks.signOut.mockResolvedValue({ data: { success: true }, error: null })
-    render(<UserFooter user={user} />)
+    const { queryClient } = renderWithClient(<UserFooter user={user} />)
 
     fireEvent.click(screen.getByRole('button', { name: 'Sign out' }))
 
-    await waitFor(() => expect(mocks.push).toHaveBeenCalledWith('/login'))
-    expect(mocks.refresh).toHaveBeenCalled()
+    await waitFor(() => expect(fullPageNavigation.assign).toHaveBeenCalledWith('/login'))
+    expect(queryClient.getQueryData(['signed-in-data'])).toBeUndefined()
   })
 
   it('shows an error and re-enables the button when sign out fails', async () => {
     mocks.signOut.mockResolvedValue({ data: null, error: { message: 'Network down' } })
-    render(<UserFooter user={user} />)
+    renderWithClient(<UserFooter user={user} />)
 
     const button = screen.getByRole('button', { name: 'Sign out' })
     fireEvent.click(button)
 
     expect((await screen.findByRole('alert')).textContent).toBe('Network down')
     expect((button as HTMLButtonElement).disabled).toBe(false)
-    expect(mocks.push).not.toHaveBeenCalled()
+    expect(fullPageNavigation.assign).not.toHaveBeenCalled()
   })
 })
