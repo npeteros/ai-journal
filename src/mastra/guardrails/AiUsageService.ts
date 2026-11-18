@@ -8,12 +8,15 @@ const DEFAULT_WINDOW_SECONDS = 3600
 const DEFAULT_MAX_CALLS = 50
 const DEFAULT_VOICE_WINDOW_SECONDS = 86_400
 const DEFAULT_VOICE_MAX_SESSIONS = 3
+const DEFAULT_MONTHLY_STORY_WINDOW_SECONDS = 86_400
+const DEFAULT_MONTHLY_STORY_MAX_CALLS = 20
 
 /** `agent` value of voice session rows. They have their own budget, outside the shared AI limit. */
 export const VOICE_SESSION_AGENT = 'voice-session'
 export const VOICE_SESSION_MODEL = 'openai/gpt-live-1'
 /** Longest voice session we record, matching the client-side session cap. */
 export const VOICE_SESSION_MAX_SECONDS = 600
+export const MONTHLY_STORY_AGENT = 'monthly-story-agent'
 
 export type AiUsageReservation = {
   /** Null for system calls (e.g. workflows with no signed-in user), which skip the rate limit. */
@@ -52,7 +55,7 @@ type ReserveLimit = {
   windowSeconds: number
   maxCalls: number
   /** Which of the user's rows count toward this limit. */
-  agentFilter: { agent: string } | { agent: { not: string } }
+  agentFilter: { agent: string } | { agent: { notIn: string[] } }
   message: string
 }
 
@@ -106,23 +109,49 @@ export class AiUsageService {
     }
   }
 
+  getMonthlyStoryConfig(): AiRateLimitConfig {
+    return {
+      windowSeconds: readPositiveInt(
+        process.env.MONTHLY_STORY_WINDOW_SECONDS,
+        DEFAULT_MONTHLY_STORY_WINDOW_SECONDS,
+      ),
+      maxCalls: readPositiveInt(
+        process.env.MONTHLY_STORY_MAX_CALLS,
+        DEFAULT_MONTHLY_STORY_MAX_CALLS,
+      ),
+    }
+  }
+
   /**
    * Checks the rate limit and inserts the call's usage row before the model is called,
    * so in-flight calls count toward the limit. Returns the row ID for `finalize()`.
    * Throws TOO_MANY_REQUESTS when the user has used up their calls for the current window.
-   * Voice session rows don't count toward this limit; they have their own budget.
+   * Voice sessions and background monthly story summaries have their own budgets and don't
+   * count toward this limit.
    *
    * The row starts as a failed call with no tokens, which is what remains if the call
    * never finalizes (e.g. the process dies mid-stream).
    */
   async reserve({ userId, agent, model }: AiUsageReservation): Promise<string> {
+    if (agent === MONTHLY_STORY_AGENT) {
+      const { windowSeconds, maxCalls } = this.getMonthlyStoryConfig()
+      return this.reserveRow(
+        { userId, agent, model },
+        {
+          windowSeconds,
+          maxCalls,
+          agentFilter: { agent: MONTHLY_STORY_AGENT },
+          message: `Monthly story limit exceeded: ${maxCalls} calls per ${windowSeconds}s`,
+        },
+      )
+    }
     const { windowSeconds, maxCalls } = this.getConfig()
     return this.reserveRow(
       { userId, agent, model },
       {
         windowSeconds,
         maxCalls,
-        agentFilter: { agent: { not: VOICE_SESSION_AGENT } },
+        agentFilter: { agent: { notIn: [VOICE_SESSION_AGENT, MONTHLY_STORY_AGENT] } },
         message: `AI rate limit exceeded: ${maxCalls} calls per ${windowSeconds}s`,
       },
     )

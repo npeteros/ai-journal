@@ -27,6 +27,9 @@ vi.mock('../agents/personality-agent', () => ({ personalityAgent: { id: 'persona
 vi.mock('../agents/journal-companion-agent', () => ({
   journalCompanionAgent: { id: 'journal-companion-agent' },
 }))
+vi.mock('../agents/monthly-story-agent', () => ({
+  monthlyStoryAgent: { id: 'monthly-story-agent' },
+}))
 vi.mock('../agents/voice-companion-agent', () => ({
   voiceCompanionAgent: { id: 'voice-companion-agent' },
 }))
@@ -69,6 +72,7 @@ describe('Mastra registration', () => {
         entryTitleAgent: { id: 'entry-title-agent' },
         entryAnalysisAgent: { id: 'entry-analysis-agent' },
         insightsAgent: { id: 'insights-agent' },
+        monthlyStoryAgent: { id: 'monthly-story-agent' },
         personalityAgent: { id: 'personality-agent' },
         voiceCompanionAgent: { id: 'voice-companion-agent' },
         voiceDraftAgent: { id: 'voice-draft-agent' },
