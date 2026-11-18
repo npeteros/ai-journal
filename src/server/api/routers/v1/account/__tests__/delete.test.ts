@@ -1,6 +1,7 @@
 // @vitest-environment node
 import { TRPCError } from '@trpc/server'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { auth } from '@/src/server/auth/auth'
 import { createCallerFactory, type TRPCContext } from '@/src/server/trpc/init'
 import { accountRouter } from '../index'
 
@@ -26,11 +27,17 @@ const createCaller = createCallerFactory(accountRouter)
 const input = { password: 'correct-horse1', confirmation: 'DELETE' }
 
 function callerFor(userId = 'user-1') {
-  return createCaller({
+  const ctx = {
     headers: new Headers(),
     session: { id: 'session-1', userId },
     user: { id: userId, email: 'jaden@example.com', name: 'Jaden', deletedAt: null },
-  } as unknown as TRPCContext)
+  } as unknown as TRPCContext
+  // Mutations look the session up again without the cookie cache; keep it signed in.
+  vi.mocked(auth.api.getSession).mockResolvedValue({
+    session: ctx.session,
+    user: ctx.user,
+  } as never)
+  return createCaller(ctx)
 }
 
 async function codeOf(promise: Promise<unknown>) {
@@ -53,12 +60,18 @@ describe('account.delete', () => {
   })
 
   it('rejects an already-deleted user', async () => {
-    const caller = createCaller({
+    const ctx = {
       headers: new Headers(),
       session: { id: 's', userId: 'user-1' },
       user: { id: 'user-1', deletedAt: new Date() },
-    } as unknown as TRPCContext)
-    expect(await codeOf(caller.delete(input))).toBe('UNAUTHORIZED')
+    } as unknown as TRPCContext
+    // The fresh lookup still finds the session, so only `deletedAt` can reject it.
+    vi.mocked(auth.api.getSession).mockResolvedValue({
+      session: ctx.session,
+      user: ctx.user,
+    } as never)
+    expect(await codeOf(createCaller(ctx).delete(input))).toBe('UNAUTHORIZED')
+    expect(mocks.prisma.$transaction).not.toHaveBeenCalled()
   })
 
   it('needs the DELETE confirmation', async () => {

@@ -41,13 +41,28 @@ export type TRPCContext = Awaited<ReturnType<typeof createTRPCContext>>
 
 const t = initTRPC.context<TRPCContext>().create()
 
-const isAuthed = t.middleware(({ ctx, next }) => {
-  if (!ctx.session || !ctx.user || ctx.user.deletedAt) {
+/**
+ * Queries trust the session from the context, which may come from the cookie cache (up to a
+ * minute old). Mutations look it up again without the cache, so a session that was signed out,
+ * or whose account was deleted, can't change anything once it's gone from the database.
+ */
+const isAuthed = t.middleware(async ({ ctx, type, next }) => {
+  const result =
+    type === 'mutation' && ctx.session
+      ? await auth.api.getSession({
+          headers: ctx.headers,
+          query: { disableCookieCache: true },
+        })
+      : { session: ctx.session, user: ctx.user }
+
+  const session = result?.session
+  const user = result?.user
+  if (!session || !user || user.deletedAt) {
     throw new TRPCError({ code: 'UNAUTHORIZED' })
   }
 
   // Re-pass session/user so downstream procedures see them as non-null.
-  return next({ ctx: { ...ctx, session: ctx.session, user: ctx.user } })
+  return next({ ctx: { ...ctx, session, user } })
 })
 
 export const createTRPCRouter = t.router
