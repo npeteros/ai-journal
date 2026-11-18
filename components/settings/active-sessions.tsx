@@ -1,5 +1,6 @@
 'use client'
 
+import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Monitor, Smartphone } from 'lucide-react'
 
@@ -35,18 +36,36 @@ export function ActiveSessions() {
 
   const refresh = () => queryClient.invalidateQueries({ queryKey: SESSIONS_QUERY_KEY })
 
+  // Only the latest action's error is shown: starting another action clears it.
+  const [actionError, setActionError] = useState<string | null>(null)
+  // Tokens being signed out, so only those rows' buttons are disabled.
+  const [revoking, setRevoking] = useState<ReadonlySet<string>>(() => new Set())
+
   const signOutOne = useMutation({
     mutationFn: async (token: string) => {
       const { error } = await revokeSession({ token })
       if (error) throw new Error(error.message || 'Could not sign out that session.')
     },
+    onMutate: (token) => {
+      setActionError(null)
+      setRevoking((current) => new Set(current).add(token))
+    },
+    onError: (error) => setActionError(error.message),
     onSuccess: refresh,
+    onSettled: (_data, _error, token) =>
+      setRevoking((current) => {
+        const next = new Set(current)
+        next.delete(token)
+        return next
+      }),
   })
   const signOutOthers = useMutation({
     mutationFn: async () => {
       const { error } = await revokeOtherSessions()
       if (error) throw new Error(error.message || 'Could not sign out your other sessions.')
     },
+    onMutate: () => setActionError(null),
+    onError: (error) => setActionError(error.message),
     onSuccess: refresh,
   })
 
@@ -58,7 +77,7 @@ export function ActiveSessions() {
   )
   const hasOthers = list.some((s) => s.id !== currentId)
   const now = new Date(sessions.dataUpdatedAt)
-  const error = sessions.error ?? signOutOne.error ?? signOutOthers.error
+  const error = sessions.error?.message ?? actionError
 
   return (
     <SettingsSection label="Active sessions" i={2}>
@@ -98,10 +117,10 @@ export function ActiveSessions() {
                 type="button"
                 variant="soft"
                 size="md"
-                disabled={signOutOne.isPending}
+                disabled={revoking.has(s.token) || signOutOthers.isPending}
                 onClick={() => signOutOne.mutate(s.token)}
               >
-                Sign out
+                {revoking.has(s.token) ? 'Signing out…' : 'Sign out'}
               </Button>
             )}
           </div>
@@ -111,7 +130,7 @@ export function ActiveSessions() {
       {error && (
         <div className={rowClass}>
           <p role="alert" className="text-[13px] text-destructive">
-            {error.message}
+            {error}
           </p>
         </div>
       )}
