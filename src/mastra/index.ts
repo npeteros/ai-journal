@@ -10,6 +10,7 @@ import { journalCompanionAgent } from './agents/journal-companion-agent'
 import { monthlyStoryAgent } from './agents/monthly-story-agent'
 import { voiceCompanionAgent } from './agents/voice-companion-agent'
 import { voiceDraftAgent } from './agents/voice-draft-agent'
+import { writingCompanionAgent } from './agents/writing-companion-agent'
 import { logger, observability } from './observability'
 import { getEntryTool } from './tools/get-entry-tool'
 import { searchEntriesTool } from './tools/search-entries-tool'
@@ -98,6 +99,7 @@ export const mastra = new Mastra({
     personalityAgent,
     voiceCompanionAgent,
     voiceDraftAgent,
+    writingCompanionAgent,
   },
   tools: { searchEntriesTool, getEntryTool },
   workflows: { entryAnalysisWorkflow, insightsWorkflow, personalityWorkflow },

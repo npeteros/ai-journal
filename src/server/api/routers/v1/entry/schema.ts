@@ -111,3 +111,10 @@ export type EntryUpdateInput = z.input<typeof EntryUpdateSchema>
 export type EntryUpdateData = z.output<typeof EntryUpdateSchema>
 export type EntryFindManyInput = z.input<typeof EntryFindManySchema>
 export type EntryFindManyData = z.output<typeof EntryFindManySchema>
+
+export const EntryCompanionQuestionSchema = z.object({
+  id: z.uuid(),
+  /** The entry's current text, which may be ahead of the last autosave. */
+  text: z.string().max(BODY_MAX_LENGTH),
+  trigger: z.enum(['auto', 'manual']),
+})

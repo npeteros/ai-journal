@@ -13,14 +13,14 @@ datasource db {
 }
 
 model User {
-  id                 String              @id
+  id                 String                     @id
   name               String
   email              String
-  emailVerified      Boolean             @default(false)
+  emailVerified      Boolean                    @default(false)
   image              String?
-  createdAt          DateTime            @default(now())
-  updatedAt          DateTime            @updatedAt
-  deletedAt          DateTime?           @db.Timestamptz
+  createdAt          DateTime                   @default(now())
+  updatedAt          DateTime                   @updatedAt
+  deletedAt          DateTime?                  @db.Timestamptz
   sessions           Session[]
   accounts           Account[]
   aiUsageLogs        AiUsageLog[]
@@ -31,6 +31,7 @@ model User {
   personalityProfile PersonalityProfile?
   monthlyStories     MonthlyStory[]
   dailyPrompts       DailyPrompt[]
+  companionQuestions WritingCompanionQuestion[]
   profile            UserProfile?
 
   @@unique([email])
@@ -102,20 +103,21 @@ model AiUsageLog {
 }
 
 model Entry {
-  id          String         @id @default(uuid()) @db.Uuid
-  userId      String
-  user        User           @relation(fields: [userId], references: [id], onDelete: Cascade)
-  frameworkId String?        @db.Uuid
-  framework   Framework?     @relation(fields: [frameworkId], references: [id], onDelete: SetNull)
-  title       String
-  body        String
-  writtenAt   DateTime       @default(now()) @db.Timestamptz
-  entryDate   DateTime       @db.Date
-  createdAt   DateTime       @default(now()) @db.Timestamptz
-  updatedAt   DateTime       @updatedAt @db.Timestamptz
-  deletedAt   DateTime?      @db.Timestamptz
-  tags        EntryTag[]
-  analysis    EntryAnalysis?
+  id                 String                     @id @default(uuid()) @db.Uuid
+  userId             String
+  user               User                       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  frameworkId        String?                    @db.Uuid
+  framework          Framework?                 @relation(fields: [frameworkId], references: [id], onDelete: SetNull)
+  title              String
+  body               String
+  writtenAt          DateTime                   @default(now()) @db.Timestamptz
+  entryDate          DateTime                   @db.Date
+  createdAt          DateTime                   @default(now()) @db.Timestamptz
+  updatedAt          DateTime                   @updatedAt @db.Timestamptz
+  deletedAt          DateTime?                  @db.Timestamptz
+  tags               EntryTag[]
+  analysis           EntryAnalysis?
+  companionQuestions WritingCompanionQuestion[]
 
   @@index([userId, writtenAt])
   @@index([userId, entryDate])
@@ -225,6 +227,26 @@ model DailyPrompt {
 
   @@unique([userId, day])
   @@map("daily_prompt")
+}
+
+/// Questions the writing companion asked while an entry was being written. Kept apart from the
+/// entry itself; used to enforce the per-entry rules in src/lib/companion.ts and to avoid repeats.
+model WritingCompanionQuestion {
+  id        String   @id @default(uuid()) @db.Uuid
+  entryId   String   @db.Uuid
+  entry     Entry    @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// Null while pending, or when generation failed.
+  question  String?
+  /// The entry's word count when the question was requested.
+  wordCount Int
+  /// `pending` | `answered` | `failed`. Failed rows don't count toward the per-entry rules.
+  status    String
+  createdAt DateTime @default(now()) @db.Timestamptz
+
+  @@index([entryId, createdAt])
+  @@map("writing_companion_question")
 }
 
 model Tag {
