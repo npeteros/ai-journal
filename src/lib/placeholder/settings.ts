@@ -2,8 +2,6 @@
  * PLACEHOLDER DATA — mock settings / privacy values for the UI build.
  * Replace with user preferences, export metadata and the AI processing log from the API.
  */
-export const reminderSettings = { enabled: true, time: '9:00 PM' }
-
 export const exportInfo = { entries: 24, size: '128 KB' }
 
 export const retentionOptions = [

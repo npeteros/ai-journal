@@ -231,3 +231,23 @@
     @apply font-sans;
   }
 }
+
+/* Onboarding tour (components/onboarding/tour.tsx): glide the spotlight and the popover between
+   steps. Radix positions the popover by translating its wrapper, so the transition goes there.
+   Applied only while `data-tour-glide` is set, so scrolling still tracks instantly. */
+[data-tour-glide],
+[data-radix-popper-content-wrapper]:has(> [data-tour-glide]) {
+  transition:
+    transform 380ms var(--ease-out),
+    top 380ms var(--ease-out),
+    left 380ms var(--ease-out),
+    width 380ms var(--ease-out),
+    height 380ms var(--ease-out);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-tour-glide],
+  [data-radix-popper-content-wrapper]:has(> [data-tour-glide]) {
+    transition: none;
+  }
+}

@@ -1,6 +1,7 @@
 import { isMainThread } from 'node:worker_threads'
 import { Mastra } from '@mastra/core/mastra'
 import type { MastraCompositeStore, StorageDomains } from '@mastra/core/storage'
+import { dailyPromptAgent } from './agents/daily-prompt-agent'
 import { entryAnalysisAgent } from './agents/entry-analysis-agent'
 import { entryTitleAgent } from './agents/entry-title-agent'
 import { insightsAgent } from './agents/insights-agent'
@@ -9,6 +10,7 @@ import { journalCompanionAgent } from './agents/journal-companion-agent'
 import { monthlyStoryAgent } from './agents/monthly-story-agent'
 import { voiceCompanionAgent } from './agents/voice-companion-agent'
 import { voiceDraftAgent } from './agents/voice-draft-agent'
+import { writingCompanionAgent } from './agents/writing-companion-agent'
 import { logger, observability } from './observability'
 import { getEntryTool } from './tools/get-entry-tool'
 import { searchEntriesTool } from './tools/search-entries-tool'
@@ -93,9 +95,11 @@ export const mastra = new Mastra({
     entryAnalysisAgent,
     insightsAgent,
     monthlyStoryAgent,
+    dailyPromptAgent,
     personalityAgent,
     voiceCompanionAgent,
     voiceDraftAgent,
+    writingCompanionAgent,
   },
   tools: { searchEntriesTool, getEntryTool },
   workflows: { entryAnalysisWorkflow, insightsWorkflow, personalityWorkflow },

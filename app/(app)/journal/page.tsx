@@ -7,7 +7,6 @@ import { EntryList } from '@/components/journal/entry-list'
 import { TodayBand } from '@/components/journal/today-band'
 import { Rise } from '@/components/motion'
 import { firstNameOf, formatTodayOverline, greetingFor } from '@/src/lib/format'
-import { todaysPrompt } from '@/src/lib/placeholder/entries'
 import { PAGE_SIZE_DEFAULT } from '@/src/server/api/routers/v1/entry/schema'
 import { getServerSession } from '@/src/server/auth/session'
 import { getQueryClient, trpc } from '@/src/server/trpc/server'
@@ -68,11 +67,7 @@ export default async function JournalHomePage() {
             <JadenFor placement="journalHome" vars={{ name: firstName ?? 'there' }} />
           </JadenPerch>
         </div>
-        <TodayBand
-          prompt={todaysPrompt.text}
-          source={todaysPrompt.source}
-          writeHref="/journal/new"
-        />
+        <TodayBand writeHref="/journal/new" />
       </Rise>
 
       <HydrationBoundary state={dehydrate(queryClient)}>

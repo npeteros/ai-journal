@@ -1,7 +1,6 @@
 import type { Metadata } from 'next'
 import { Globe, Mail, SunMedium } from 'lucide-react'
 
-import { ReminderRows } from '@/components/settings/reminder-rows'
 import {
   RowIcon,
   SettingsRow,
@@ -9,7 +8,7 @@ import {
   SettingsTitle,
 } from '@/components/settings/settings-ui'
 import { ThemeToggle } from '@/components/settings/theme-toggle'
-import { languages, reminderSettings } from '@/src/lib/placeholder/settings'
+import { languages } from '@/src/lib/placeholder/settings'
 import { getServerSession } from '@/src/server/auth/session'
 
 export const metadata: Metadata = { title: 'Settings' }
@@ -54,10 +53,6 @@ export default async function GeneralSettingsPage() {
           value={session?.user.email}
         />
         <SettingsRow inset label="Change password" href="/settings/security" />
-      </SettingsSection>
-
-      <SettingsSection label="Reminders" i={2}>
-        <ReminderRows initial={reminderSettings} />
       </SettingsSection>
 
       <p className="mt-1 text-center text-[12px] leading-snug text-neutral-400">

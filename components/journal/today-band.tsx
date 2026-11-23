@@ -2,16 +2,17 @@ import Link from 'next/link'
 import { ArrowRight } from 'lucide-react'
 
 import { Orb } from '@/components/ui/ai'
+import { APP_TIME_ZONE } from '@/src/lib/app-time-zone'
+import { starterPromptAt } from '@/src/lib/daily-prompt-starters'
+import { TodayPrompt } from './today-prompt'
 import { WeekMoodStrip } from './week-mood-strip'
 
 type TodayBandProps = {
-  prompt: string
-  source: string
   writeHref: string
 }
 
 /** Dark hero band: today's AI prompt on the left, the week in mood dots on the right. */
-export function TodayBand({ prompt, source, writeHref }: TodayBandProps) {
+export function TodayBand({ writeHref }: TodayBandProps) {
   return (
     <section
       aria-label="Today's prompt"
@@ -40,20 +41,14 @@ export function TodayBand({ prompt, source, writeHref }: TodayBandProps) {
             Today&apos;s prompt
           </span>
         </div>
-        <p className="max-w-[560px] font-serif text-[20px] leading-[1.3] font-medium italic sm:text-[24px]">
-          &ldquo;{prompt}&rdquo;
-        </p>
-        <div className="mt-0.5 flex flex-wrap items-center gap-3.5">
+        <TodayPrompt fallback={starterPromptAt(APP_TIME_ZONE)}>
           <Link
             href={writeHref}
             className="inline-flex items-center gap-1.5 rounded-full border border-white/20 bg-white/12 px-4 py-[9px] text-[13px] leading-none font-semibold transition-colors hover:bg-white/20"
           >
             Write about it <ArrowRight className="size-3" strokeWidth={2.4} />
           </Link>
-          <span className="text-[12px] leading-none font-medium text-[oklch(80%_0.02_260)]">
-            {source}
-          </span>
-        </div>
+        </TodayPrompt>
       </div>
 
       <div aria-hidden className="h-px bg-white/14 sm:h-auto sm:w-px" />

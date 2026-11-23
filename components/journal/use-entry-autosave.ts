@@ -24,6 +24,12 @@ export const ANALYSIS_POLL_WINDOW_MS = 90_000
 export type EntryDraft = { title: string; body: string; tags: string[] }
 export type SavedEntry = EntryDraft & { id: string; writtenAt: string }
 export type SaveStatus = 'idle' | 'saving' | 'saved' | 'error'
+export type EntryAutosaveOptions = {
+  /** URL shown once a new entry is created. Defaults to `/journal/[id]`. */
+  pathForId?: (id: string) => string
+}
+
+const entryPath = (id: string) => `/journal/${id}`
 
 const snapshot = ({ title, body, tags }: EntryDraft) => JSON.stringify([title, body, tags])
 
@@ -36,14 +42,19 @@ const analysisStamp = (entry: { analysis: { analyzedAt: Date | string } | null }
 /**
  * Owns an entry's draft and keeps it saved through `v1.entry.*`.
  *
- * - The first save creates the entry and swaps the URL to `/journal/[id]`; later saves update it.
+ * - The first save creates the entry and swaps the URL to `/journal/[id]` (or
+ *   `options.pathForId(id)`); later saves update it.
  * - Saves run one at a time and always send the latest draft, so edits made mid-save are not lost.
  * - A save is triggered ~1.5 s after typing stops, on `flush()` (blur / Save), when the tab is
  *   hidden, and when the editor unmounts. Closing the tab with unsaved changes prompts first.
  * - After a save that changes the body, polls `findOne` until the new analysis arrives
  *   (`analyzing` is true meanwhile). Read the analysis itself with `useEntryAnalysis`.
  */
-export function useEntryAutosave(entry?: SavedEntry, delayMs = AUTOSAVE_DELAY_MS) {
+export function useEntryAutosave(
+  entry?: SavedEntry,
+  delayMs = AUTOSAVE_DELAY_MS,
+  { pathForId = entryPath }: EntryAutosaveOptions = {},
+) {
   const trpc = useTRPC()
   const queryClient = useQueryClient()
   const router = useRouter()
@@ -76,6 +87,8 @@ export function useEntryAutosave(entry?: SavedEntry, delayMs = AUTOSAVE_DELAY_MS
   const [bodySavedAt, setBodySavedAt] = useState<number | null>(pendingAnalysisSince)
 
   const draftRef = useRef(draft)
+  // Read once: the editor's mode doesn't change while it's mounted.
+  const pathForIdRef = useRef(pathForId)
   /** Snapshot of the draft the server last confirmed; a different snapshot means unsaved edits. */
   const savedRef = useRef(snapshot(draft))
   const entryIdRef = useRef(entryId)
@@ -194,7 +207,7 @@ export function useEntryAutosave(entry?: SavedEntry, delayMs = AUTOSAVE_DELAY_MS
           setWrittenAt(new Date(created.writtenAt).toISOString())
           // replaceState (not router.replace) keeps this editor mounted, so focus and the
           // cursor stay put while the user keeps typing.
-          window.history.replaceState(null, '', `/journal/${created.id}`)
+          window.history.replaceState(null, '', pathForIdRef.current(created.id))
           void invalidateStats()
           serverTitle = created.title
           savedAt = new Date(created.updatedAt).getTime()
@@ -334,6 +347,8 @@ export function useEntryAutosave(entry?: SavedEntry, delayMs = AUTOSAVE_DELAY_MS
     save: () => flush(true),
     /** Blur: save now if anything changed. */
     flush: () => flush(),
+    /** The entry's id right now, including one created by a save that just finished. */
+    currentEntryId: () => entryIdRef.current,
     remove,
   }
 }
