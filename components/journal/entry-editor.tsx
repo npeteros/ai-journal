@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
 import { Check, Mic, Plus, Sparkles, Trash2, X } from 'lucide-react'
@@ -15,16 +16,26 @@ import {
   TITLE_MAX_LENGTH,
 } from '@/src/server/api/routers/v1/entry/schema'
 import { AiRail, type AiRailState } from './ai-rail'
+import { CompanionPanel } from './companion-panel'
 import { useEntryAnalysis } from './use-entry-analysis'
 import { useEntryAutosave, type SavedEntry } from './use-entry-autosave'
+import { useWritingCompanion } from './use-writing-companion'
+
+export type EntryEditorMode = 'default' | 'companion'
 
 type EntryEditorProps = {
   /** Existing entry, or undefined for a new one */
   entry?: SavedEntry
+  /** `companion` swaps the AI rail for the writing companion (`/journal/companion`). */
+  mode?: EntryEditorMode
 }
 
+export const companionPath = (id: string) => `/journal/companion?entry=${id}`
+
 /** Writing surface: title, auto-growing body, tags; AI rail beside it (below on mobile). */
-export function EntryEditor({ entry }: EntryEditorProps) {
+export function EntryEditor({ entry, mode = 'default' }: EntryEditorProps) {
+  const router = useRouter()
+  const isCompanion = mode === 'companion'
   const {
     draft,
     update,
@@ -37,9 +48,12 @@ export function EntryEditor({ entry }: EntryEditorProps) {
     bodySavedAt,
     save,
     flush,
+    currentEntryId,
     remove,
-  } = useEntryAutosave(entry)
+  } = useEntryAutosave(entry, undefined, isCompanion ? { pathForId: companionPath } : undefined)
   const { title, body, tags } = draft
+  // Off the companion screen, `entryId: null` keeps the companion idle.
+  const companion = useWritingCompanion({ entryId: isCompanion ? entryId : null, body })
   const latestAnalysis = useEntryAnalysis(entryId)
   // An analysis older than the last body change describes text that's gone, so don't show it.
   const analysis =
@@ -148,12 +162,27 @@ export function EntryEditor({ entry }: EntryEditorProps) {
                 <Trash2 className="size-4" />
               </button>
             )}
-            <Link
-              href="/journal"
-              className="text-[14px] font-medium text-neutral-400 hover:text-neutral-600"
-            >
-              Done
-            </Link>
+            {isCompanion ? (
+              <button
+                type="button"
+                onClick={async () => {
+                  await flush()
+                  const id = currentEntryId()
+                  router.push(id ? `/journal/${id}` : '/journal')
+                }}
+                disabled={deleting}
+                className="text-[14px] font-medium text-neutral-400 hover:text-neutral-600"
+              >
+                Done
+              </button>
+            ) : (
+              <Link
+                href="/journal"
+                className="text-[14px] font-medium text-neutral-400 hover:text-neutral-600"
+              >
+                Done
+              </Link>
+            )}
             <Button
               variant="ink-flat"
               size="md"
@@ -253,7 +282,15 @@ export function EntryEditor({ entry }: EntryEditorProps) {
           >
             {[
               { href: '/journal/voice', label: 'Talk with JADEN', Icon: Mic },
-              { href: '/journal/companion', label: 'Ask JADEN', Icon: Sparkles },
+              ...(isCompanion
+                ? []
+                : [
+                    {
+                      href: entryId ? companionPath(entryId) : '/journal/companion',
+                      label: 'Ask JADEN',
+                      Icon: Sparkles,
+                    },
+                  ]),
             ].map(({ href, label, Icon }) => (
               <Link
                 key={href}
@@ -267,14 +304,26 @@ export function EntryEditor({ entry }: EntryEditorProps) {
           </div>
         </div>
 
-        <AiRail
-          state={railState}
-          moodLabel={analysis ? moodLabel[analysis.mood] : undefined}
-          moodScore={analysis?.moodScore}
-          suggestedTags={suggestedTags}
-          summary={analysis?.summary}
-          onAcceptTag={addTag}
-        />
+        {isCompanion ? (
+          <CompanionPanel
+            question={companion.question}
+            asking={companion.asking}
+            note={companion.note}
+            coolingDown={companion.coolingDown}
+            ready={entryId !== null}
+            onAskAnother={companion.askAnother}
+            onDismiss={companion.dismiss}
+          />
+        ) : (
+          <AiRail
+            state={railState}
+            moodLabel={analysis ? moodLabel[analysis.mood] : undefined}
+            moodScore={analysis?.moodScore}
+            suggestedTags={suggestedTags}
+            summary={analysis?.summary}
+            onAcceptTag={addTag}
+          />
+        )}
       </div>
     </div>
   )
