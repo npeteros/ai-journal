@@ -4,6 +4,7 @@ import { TRPCError } from '@trpc/server'
 import type { IMastraLogger } from '@mastra/core/logger'
 import {
   AiUsageService,
+  DAILY_PROMPT_AGENT,
   MONTHLY_STORY_AGENT,
   VOICE_SESSION_AGENT,
   VOICE_SESSION_MODEL,
@@ -130,13 +131,15 @@ describe('AiUsageService', () => {
       expect(where.userId).toBe('user-42')
     })
 
-    it('leaves voice session and monthly story rows out of the shared count', async () => {
+    it('leaves voice session, monthly story and daily prompt rows out of the shared count', async () => {
       const { tx, service } = setup()
 
       await service.reserve(reservation)
 
       const { where } = tx.aiUsageLog.count.mock.calls[0][0]
-      expect(where.agent).toEqual({ notIn: [VOICE_SESSION_AGENT, MONTHLY_STORY_AGENT] })
+      expect(where.agent).toEqual({
+        notIn: [VOICE_SESSION_AGENT, MONTHLY_STORY_AGENT, DAILY_PROMPT_AGENT],
+      })
     })
 
     it('counts monthly story calls against their own budget only', async () => {
@@ -149,6 +152,18 @@ describe('AiUsageService', () => {
 
       const { where } = tx.aiUsageLog.count.mock.calls[0][0]
       expect(where.agent).toBe(MONTHLY_STORY_AGENT)
+    })
+
+    it('counts daily prompt calls against their own budget only', async () => {
+      const { tx, service } = setup()
+      tx.aiUsageLog.count.mockResolvedValue(5)
+
+      await expect(
+        service.reserve({ ...reservation, agent: DAILY_PROMPT_AGENT }),
+      ).rejects.toMatchObject({ code: 'TOO_MANY_REQUESTS' })
+
+      const { where } = tx.aiUsageLog.count.mock.calls[0][0]
+      expect(where.agent).toBe(DAILY_PROMPT_AGENT)
     })
 
     it('inserts a system row without locking or counting when userId is null', async () => {

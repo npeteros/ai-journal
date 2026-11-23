@@ -67,9 +67,4 @@ export function getPlaceholderEntry(id: string) {
   return placeholderEntries.find((e) => e.id === id)
 }
 
-export const todaysPrompt = {
-  text: 'Three mornings this week felt slower. What made the space for them?',
-  source: 'From your last 6 entries',
-}
-
 export const companionPrompt = 'What made this morning feel different from most?'

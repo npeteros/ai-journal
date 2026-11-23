@@ -10,6 +10,8 @@ const DEFAULT_VOICE_WINDOW_SECONDS = 86_400
 const DEFAULT_VOICE_MAX_SESSIONS = 3
 const DEFAULT_MONTHLY_STORY_WINDOW_SECONDS = 86_400
 const DEFAULT_MONTHLY_STORY_MAX_CALLS = 20
+const DEFAULT_DAILY_PROMPT_WINDOW_SECONDS = 86_400
+const DEFAULT_DAILY_PROMPT_MAX_CALLS = 5
 
 /** `agent` value of voice session rows. They have their own budget, outside the shared AI limit. */
 export const VOICE_SESSION_AGENT = 'voice-session'
@@ -17,6 +19,7 @@ export const VOICE_SESSION_MODEL = 'openai/gpt-live-1'
 /** Longest voice session we record, matching the client-side session cap. */
 export const VOICE_SESSION_MAX_SECONDS = 600
 export const MONTHLY_STORY_AGENT = 'monthly-story-agent'
+export const DAILY_PROMPT_AGENT = 'daily-prompt-agent'
 
 export type AiUsageReservation = {
   /** Null for system calls (e.g. workflows with no signed-in user), which skip the rate limit. */
@@ -122,12 +125,22 @@ export class AiUsageService {
     }
   }
 
+  getDailyPromptConfig(): AiRateLimitConfig {
+    return {
+      windowSeconds: readPositiveInt(
+        process.env.DAILY_PROMPT_WINDOW_SECONDS,
+        DEFAULT_DAILY_PROMPT_WINDOW_SECONDS,
+      ),
+      maxCalls: readPositiveInt(process.env.DAILY_PROMPT_MAX_CALLS, DEFAULT_DAILY_PROMPT_MAX_CALLS),
+    }
+  }
+
   /**
    * Checks the rate limit and inserts the call's usage row before the model is called,
    * so in-flight calls count toward the limit. Returns the row ID for `finalize()`.
    * Throws TOO_MANY_REQUESTS when the user has used up their calls for the current window.
-   * Voice sessions and background monthly story summaries have their own budgets and don't
-   * count toward this limit.
+   * Voice sessions, background monthly story summaries and daily journal prompts have their own
+   * budgets and don't count toward this limit.
    *
    * The row starts as a failed call with no tokens, which is what remains if the call
    * never finalizes (e.g. the process dies mid-stream).
@@ -145,13 +158,27 @@ export class AiUsageService {
         },
       )
     }
+    if (agent === DAILY_PROMPT_AGENT) {
+      const { windowSeconds, maxCalls } = this.getDailyPromptConfig()
+      return this.reserveRow(
+        { userId, agent, model },
+        {
+          windowSeconds,
+          maxCalls,
+          agentFilter: { agent: DAILY_PROMPT_AGENT },
+          message: `Daily prompt limit exceeded: ${maxCalls} calls per ${windowSeconds}s`,
+        },
+      )
+    }
     const { windowSeconds, maxCalls } = this.getConfig()
     return this.reserveRow(
       { userId, agent, model },
       {
         windowSeconds,
         maxCalls,
-        agentFilter: { agent: { notIn: [VOICE_SESSION_AGENT, MONTHLY_STORY_AGENT] } },
+        agentFilter: {
+          agent: { notIn: [VOICE_SESSION_AGENT, MONTHLY_STORY_AGENT, DAILY_PROMPT_AGENT] },
+        },
         message: `AI rate limit exceeded: ${maxCalls} calls per ${windowSeconds}s`,
       },
     )

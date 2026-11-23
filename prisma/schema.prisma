@@ -30,6 +30,7 @@ model User {
   insightReport      InsightReport?
   personalityProfile PersonalityProfile?
   monthlyStories     MonthlyStory[]
+  dailyPrompts       DailyPrompt[]
   profile            UserProfile?
 
   @@unique([email])
@@ -203,6 +204,27 @@ model MonthlyStory {
 
   @@unique([userId, month])
   @@map("monthly_story")
+}
+
+model DailyPrompt {
+  id           String    @id @default(uuid()) @db.Uuid
+  userId       String
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// The user's local day, stored as UTC midnight (like Entry.entryDate).
+  day          DateTime  @db.Date
+  text         String?
+  /// Number of analyzed entries the prompt was generated from.
+  sourceCount  Int?
+  model        String?
+  generatedAt  DateTime? @db.Timestamptz
+  generatingAt DateTime? @db.Timestamptz
+  failedAt     DateTime? @db.Timestamptz
+  lastError    String?
+  createdAt    DateTime  @default(now()) @db.Timestamptz
+  updatedAt    DateTime  @updatedAt @db.Timestamptz
+
+  @@unique([userId, day])
+  @@map("daily_prompt")
 }
 
 model Tag {

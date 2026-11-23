@@ -1,6 +1,7 @@
 import { isMainThread } from 'node:worker_threads'
 import { Mastra } from '@mastra/core/mastra'
 import type { MastraCompositeStore, StorageDomains } from '@mastra/core/storage'
+import { dailyPromptAgent } from './agents/daily-prompt-agent'
 import { entryAnalysisAgent } from './agents/entry-analysis-agent'
 import { entryTitleAgent } from './agents/entry-title-agent'
 import { insightsAgent } from './agents/insights-agent'
@@ -93,6 +94,7 @@ export const mastra = new Mastra({
     entryAnalysisAgent,
     insightsAgent,
     monthlyStoryAgent,
+    dailyPromptAgent,
     personalityAgent,
     voiceCompanionAgent,
     voiceDraftAgent,
