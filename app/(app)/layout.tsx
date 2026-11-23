@@ -30,6 +30,8 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
   // the pill, so the shell renders right away (see `shouldDehydrateQuery` in query-client.ts).
   const queryClient = getQueryClient()
   void queryClient.prefetchQuery(trpc.v1.entry.stats.queryOptions({ timeZone: APP_TIME_ZONE }))
+  // Onboarding state for the welcome card and tour (components/onboarding/onboarding-host.tsx).
+  void queryClient.prefetchQuery(trpc.v1.profile.get.queryOptions())
 
   const user = { name: session.user.name, email: session.user.email }
 

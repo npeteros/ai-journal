@@ -1,6 +1,7 @@
 import { Agent } from '@mastra/core/agent'
 import { aiUsageProcessor } from '../guardrails/AiUsageProcessor'
 import { JADEN_INTERVIEW, JADEN_PERSONA, JADEN_SCOPE, JADEN_TONE } from './jaden-persona'
+import { withUserProfile } from './user-profile-prompt'
 
 export const VOICE_COMPANION_AGENT_ID = 'voice-companion-agent'
 
@@ -21,7 +22,7 @@ ${JADEN_TONE}`
 export const voiceCompanionAgent = new Agent({
   id: VOICE_COMPANION_AGENT_ID,
   name: 'Jaden (voice journaling)',
-  instructions: VOICE_COMPANION_INSTRUCTIONS,
+  instructions: withUserProfile(VOICE_COMPANION_INSTRUCTIONS, 'conversation'),
   model: 'openai/gpt-5-mini',
   inputProcessors: [aiUsageProcessor],
   outputProcessors: [aiUsageProcessor],

@@ -19,6 +19,7 @@ export function AccountMenu({ user }: { user: ShellUser }) {
     <Popover.Root open={open} onOpenChange={setOpen}>
       <Popover.Trigger
         aria-label="Account"
+        data-tour="nav-settings"
         className="rounded-full outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
       >
         <UserAvatar user={user} />

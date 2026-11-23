@@ -9,6 +9,7 @@ import { cn } from 'cn'
 import { Logo } from '@/components/brand/logo'
 import { Button } from '@/components/ui/button'
 import { SPRING } from '@/components/motion'
+import { navTourId } from '@/components/onboarding/tour-steps'
 import { NAV_ITEMS, NEW_ENTRY_HREF, isActive } from './nav-items'
 import { StreakPill } from './streak-pill'
 import type { ShellUser } from './user-avatar'
@@ -23,7 +24,7 @@ export function AppSidebar({ user }: { user: ShellUser }) {
       <Logo href="/journal" />
 
       <Button asChild variant="ink" size="cta" className="w-full">
-        <Link href={NEW_ENTRY_HREF}>
+        <Link href={NEW_ENTRY_HREF} data-tour="new-entry">
           <Plus strokeWidth={2.2} />
           New entry
         </Link>
@@ -36,6 +37,7 @@ export function AppSidebar({ user }: { user: ShellUser }) {
             <Link
               key={href}
               href={href}
+              data-tour={navTourId(href)}
               aria-current={active ? 'page' : undefined}
               className={cn(
                 'relative flex items-center gap-3 rounded-[10px] px-3 py-2.5 text-[14px] transition-colors',
@@ -62,7 +64,7 @@ export function AppSidebar({ user }: { user: ShellUser }) {
 
       <div className="flex-1" />
 
-      <StreakPill />
+      <StreakPill data-tour="streak" />
 
       <UserFooter user={user} />
     </aside>

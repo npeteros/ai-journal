@@ -30,6 +30,7 @@ model User {
   insightReport      InsightReport?
   personalityProfile PersonalityProfile?
   monthlyStories     MonthlyStory[]
+  profile            UserProfile?
 
   @@unique([email])
   @@map("user")
@@ -248,4 +249,31 @@ model Framework {
 
   @@index([userId])
   @@map("framework")
+}
+
+enum CompanionTone {
+  GENTLE
+  DIRECT
+  PLAYFUL
+}
+
+// Onboarding answers and first-run state. Answers are injected into Jaden's prompts;
+// resetting onboarding nulls the timestamps (never delete the row).
+model UserProfile {
+  id                String         @id @default(uuid()) @db.Uuid
+  userId            String         @unique
+  user              User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  focusAreas        String[]       @default([])
+  focusAreaOther    String?        @db.VarChar(80)
+  goal              String?        @db.VarChar(280)
+  currentContext    String?        @db.VarChar(500)
+  preferredTone     CompanionTone?
+  welcomeAnsweredAt DateTime?      @db.Timestamptz
+  welcomeSkippedAt  DateTime?      @db.Timestamptz
+  tourCompletedAt   DateTime?      @db.Timestamptz
+  tourDismissedAt   DateTime?      @db.Timestamptz
+  createdAt         DateTime       @default(now()) @db.Timestamptz
+  updatedAt         DateTime       @updatedAt @db.Timestamptz
+
+  @@map("user_profile")
 }

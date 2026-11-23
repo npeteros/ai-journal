@@ -9,6 +9,7 @@ import { SPRING } from '@/components/motion'
 
 const ITEMS = [
   { href: '/settings', label: 'General' },
+  { href: '/settings/personalization', label: 'About you' },
   { href: '/settings/security', label: 'Security' },
   { href: '/settings/reminders', label: 'Reminders' },
   { href: '/settings/data-privacy', label: 'Data & privacy' },

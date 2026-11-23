@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 
+import { OnboardingHost } from '@/components/onboarding/onboarding-host'
 import { AppSidebar } from './app-sidebar'
 import { BottomTabBar } from './bottom-tab-bar'
 import { MobileTopBar } from './mobile-top-bar'
@@ -15,6 +16,7 @@ export function AppShell({ user, children }: { user: ShellUser; children: ReactN
         {children}
       </div>
       <BottomTabBar />
+      <OnboardingHost />
     </div>
   )
 }

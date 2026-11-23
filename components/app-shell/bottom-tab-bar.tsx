@@ -7,6 +7,7 @@ import { Plus } from 'lucide-react'
 import { cn } from 'cn'
 
 import { SPRING } from '@/components/motion'
+import { navTourId } from '@/components/onboarding/tour-steps'
 import { NAV_ITEMS, NEW_ENTRY_HREF, isActive, type NavItem } from './nav-items'
 
 // Settings lives in the mobile header's account menu, so the bar keeps four sections
@@ -27,6 +28,7 @@ export function BottomTabBar() {
       <Link
         key={href}
         href={href}
+        data-tour={navTourId(href)}
         aria-current={active ? 'page' : undefined}
         className={cn(
           'relative flex min-w-0 flex-1 flex-col items-center gap-1 rounded-[14px] px-1 py-1.5 text-[11px] leading-none',
@@ -57,6 +59,7 @@ export function BottomTabBar() {
 
       <Link
         href={NEW_ENTRY_HREF}
+        data-tour="new-entry"
         aria-label="New entry"
         aria-current={onNewEntry ? 'page' : undefined}
         className={cn(

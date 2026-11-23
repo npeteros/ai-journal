@@ -8,6 +8,7 @@ import {
   JADEN_SCOPE,
   JADEN_TONE,
 } from './jaden-persona'
+import { withUserProfile } from './user-profile-prompt'
 
 export const JOURNAL_COMPANION_AGENT_ID = 'journal-companion-agent'
 
@@ -26,7 +27,7 @@ ${JADEN_TONE}`
 export const journalCompanionAgent = new Agent({
   id: JOURNAL_COMPANION_AGENT_ID,
   name: 'Jaden',
-  instructions: JOURNAL_COMPANION_INSTRUCTIONS,
+  instructions: withUserProfile(JOURNAL_COMPANION_INSTRUCTIONS, 'conversation'),
   model: 'openai/gpt-5-mini',
   defaultOptions: { maxSteps: 4 },
   tools: { searchEntriesTool, getEntryTool },

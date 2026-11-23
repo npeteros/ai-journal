@@ -5,6 +5,7 @@ const mocks = vi.hoisted(() => ({
   getSession: vi.fn(),
   prefetchQuery: vi.fn(),
   statsQueryOptions: vi.fn((input: unknown) => ({ queryKey: ['v1.entry.stats', input] })),
+  profileQueryOptions: vi.fn(() => ({ queryKey: ['v1.profile.get'] })),
   headers: vi.fn(),
   redirect: vi.fn((url: string) => {
     throw new Error(`NEXT_REDIRECT:${url}`)
@@ -14,7 +15,12 @@ const mocks = vi.hoisted(() => ({
 vi.mock('@/src/server/auth/session', () => ({ getServerSession: mocks.getSession }))
 vi.mock('@/src/server/trpc/server', () => ({
   getQueryClient: () => ({ prefetchQuery: mocks.prefetchQuery }),
-  trpc: { v1: { entry: { stats: { queryOptions: mocks.statsQueryOptions } } } },
+  trpc: {
+    v1: {
+      entry: { stats: { queryOptions: mocks.statsQueryOptions } },
+      profile: { get: { queryOptions: mocks.profileQueryOptions } },
+    },
+  },
 }))
 vi.mock('@tanstack/react-query', () => ({
   dehydrate: () => ({}),
@@ -57,6 +63,12 @@ describe('(app) layout', () => {
     expect(mocks.prefetchQuery).toHaveBeenCalledWith({
       queryKey: ['v1.entry.stats', { timeZone: 'Asia/Manila' }],
     })
+  })
+
+  it('prefetches the onboarding state for the welcome card and tour', async () => {
+    mocks.getSession.mockResolvedValue({ user: { id: 'user-1', name: 'Maya', email: 'm@x.co' } })
+    await AppLayout({ children: 'page' })
+    expect(mocks.prefetchQuery).toHaveBeenCalledWith({ queryKey: ['v1.profile.get'] })
   })
 
   it('does not prefetch when the session is stale', async () => {
